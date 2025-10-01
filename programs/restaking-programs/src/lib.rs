@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 // This is your program's public key and it will update
 // automatically when you build the project.
-declare_id!("DoyC9YXJWxURZvQAMhSxgpX2mhzzt1ADELxzoc9iFfcV");
+declare_id!("Ba85dhVQP6y63iw2A892iEmyfbY4eaEwiMd8UkKCMgEQ");
 
 #[program]
 pub mod staking {
@@ -135,7 +135,7 @@ pub mod staking {
         token::burn(cpi_ctx_burn, restaked_amount)?;
 
         user_account.pending_unstake = restaked_amount;
-        user_account.cooldown_end_slot = Clock::get()?.slot + 50; // e.g. 50 slots (30 secs for demo)
+        user_account.cooldown_end_slot = Clock::get()?.slot + 500; // e.g. 500 slots (30 secs for demo)
 
         Ok(())
     }
@@ -191,6 +191,44 @@ pub mod staking {
             .unwrap();
         user_account.pending_unstake = 0;
 
+        Ok(())
+    }
+
+
+    pub fn InitializeOperator(ctx: Context<RegisterOperator>, bond_amount:u64 , metadata:String)->Result<()>{
+        let operator_account = &mut ctx.accounts.operator_account;
+
+        require!(bond_amount >= 20000000000, CustomError::NotEnoughToken);
+
+        operator_account.owner = ctx.accounts.operator_key.key();
+        operator_account.bond_amount = bond_amount;
+        operator_account.metadata = metadata;
+        operator_account.active = true ;
+        operator_account.avs_count = 0;
+        operator_account.bump = ctx.bumps.operator_account;
+
+        **ctx.accounts.operator_key.to_account_info().try_borrow_mut_lamports()? -= bond_amount;
+        **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()?+= bond_amount;
+        Ok(())
+    }
+
+    pub fn update_operator_metadata( ctx: Context<UpdateOperatorMetadata>, metadata : String)->Result<()>{
+
+        let operator_account = &mut ctx.accounts.operator_account;
+        require!(operator_account.owner== ctx.accounts.operator_key.key(), CustomError::Unauthorized);
+
+        operator_account.metadata = metadata;
+
+        Ok(())
+    }
+
+    pub fn de_register_operator(ctx: Context<DeRegisterOperator>)->Result<()>{
+        let operator_account = &mut ctx.accounts.operator_account;
+        require!(operator_account.owner == ctx.accounts.operator_key.key(), CustomError::Unauthorized);
+
+        **ctx.accounts.operator_key.to_account_info().try_borrow_mut_lamports()? += operator_account.bond_amount;
+        **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()? -= operator_account.bond_amount;
+        operator_account.active = false;
         Ok(())
     }
 }
@@ -399,6 +437,54 @@ pub struct ClaimUnstake<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct RegisterOperator<'info>{
+
+    #[account(mut)]
+    pub operator_key: Signer<'info>,
+
+    #[account(
+        init , 
+        payer = operator_key,
+        space = 8 + OperatorAccount::INIT_SPACE,
+        seeds = [b"operator", operator_key.key().as_ref()],
+        bump
+    )]
+    pub operator_account: Account<'info, OperatorAccount>,
+
+    pub system_program: Program<'info , System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateOperatorMetadata<'info>{
+    #[account(mut)]
+    pub operator_key: Signer<'info>,
+
+    #[account(
+        mut ,
+        seeds = [b"operator", operator_key.key().as_ref()],
+        bump = operator_account.bump,
+        has_one = owner@ CustomError::Unauthorized
+    )]
+    pub operator_account: Account<'info , OperatorAccount>
+}
+
+#[derive(Accounts)]
+pub struct DeRegisterOperator<'info>{
+
+    #[account(mut)]
+    pub operator_key: Signer<'info>,
+
+    #[account(
+        mut ,
+        seeds = [b"operator", operator_key.key().as_ref()],
+        bump = operator_account.bump,
+        close = operator
+    )]
+    pub operator_account: Account<'info , OperatorAccount>
+
+}
+
 #[account]
 #[derive(InitSpace, Debug)]
 pub struct StateAccount {
@@ -444,10 +530,28 @@ pub struct UserRestakingAccount {
     pub pending_unstake: u64,
 }
 
+#[account]
+#[derive(InitSpace, Debug)]
+pub struct OperatorAccount{
+    pub owner: Pubkey,
+    pub bond_amount : u64,
+    #[max_len(100)]
+    pub metadata: String ,
+    pub active : bool,
+    pub avs_count: u32,
+    pub bump:u8
+}
+
 #[error_code]
 pub enum CustomError {
     #[msg("Cooldown not finished yet")]
     CooldownNotFinished,
     #[msg("No pending unstake to claim")]
     NothingToClaim,
+    #[msg("Not enough tokens supplied")]
+    NotEnoughToken,
+    #[msg("Unauthorized action")]
+    Unauthorized,
+    #[msg("Insufficient bond to slash")]
+    InsufficientBond,
 }
