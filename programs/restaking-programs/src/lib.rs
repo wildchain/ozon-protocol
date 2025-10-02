@@ -22,6 +22,7 @@ pub mod staking {
         state.jitosol_mint = jitoSol_mint;
         state.rm_sol_mint = rm_sol_mint;
         state.rjito_sol_mint = rjito_sol_mint;
+        state.bump = ctx.bumps.state;
         Ok(())
     }
 
@@ -140,7 +141,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn claim_unstake(ctx: Context<ClaimUnstake>) -> Result<()> {
+  pub fn claim_unstake(ctx: Context<ClaimUnstake>) -> Result<()> {
         let vault_account = &mut ctx.accounts.vault_account;
         let mint_account = &mut ctx.accounts.mint_account;
         let user_account = &mut ctx.accounts.user_restaking_account;
@@ -194,8 +195,44 @@ pub mod staking {
         Ok(())
     }
 
+    pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> {
+            let user_account = &mut ctx.accounts.user_restaking_account;
+            let treasury = &mut ctx.accounts.treasury;
 
-    pub fn InitializeOperator(ctx: Context<RegisterOperator>, bond_amount:u64 , metadata:String)->Result<()>{
+            let current_slot = Clock::get()?.slot;
+
+           
+            let elapsed_slots = current_slot
+                .checked_sub(user_account.last_claimed_slot)
+                .unwrap();
+
+            require!(elapsed_slots > 0, CustomError::NothingToClaim);
+
+            // Simple reward model: 1 lamport per slot per staked token
+            let reward_rate: u64 = 1; // can adjust for demo
+            let rewards = elapsed_slots
+                .checked_mul(user_account.restaked_amount)
+                .unwrap()
+                .checked_mul(reward_rate)
+                .unwrap();
+
+            require!(
+                **treasury.to_account_info().lamports.borrow() >= rewards,
+                CustomError::InsufficientTreasuryBalance
+            );
+
+            **treasury.to_account_info().try_borrow_mut_lamports()? -= rewards;
+            **ctx.accounts.user.to_account_info().try_borrow_mut_lamports()? += rewards;
+
+      
+            user_account.last_claimed_slot = current_slot;
+
+            Ok(())
+         }
+
+
+
+    pub fn initialize_operator(ctx: Context<RegisterOperator>, bond_amount:u64 , metadata:String)->Result<()>{
         let operator_account = &mut ctx.accounts.operator_account;
 
         require!(bond_amount >= 20000000000, CustomError::NotEnoughToken);
@@ -215,7 +252,7 @@ pub mod staking {
     pub fn update_operator_metadata( ctx: Context<UpdateOperatorMetadata>, metadata : String)->Result<()>{
 
         let operator_account = &mut ctx.accounts.operator_account;
-        require!(operator_account.owner== ctx.accounts.operator_key.key(), CustomError::Unauthorized);
+        require!(operator_account.owner== ctx.accounts.owner.key(), CustomError::Unauthorized);
 
         operator_account.metadata = metadata;
 
@@ -226,11 +263,34 @@ pub mod staking {
         let operator_account = &mut ctx.accounts.operator_account;
         require!(operator_account.owner == ctx.accounts.operator_key.key(), CustomError::Unauthorized);
 
+        let bond_amount = operator_account.bond_amount;
+        operator_account.active = false;
         **ctx.accounts.operator_key.to_account_info().try_borrow_mut_lamports()? += operator_account.bond_amount;
         **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()? -= operator_account.bond_amount;
-        operator_account.active = false;
+      
         Ok(())
     }
+
+    pub fn slash_operator(ctx: Context<SlashOperator>, amount: u64)->Result<()>{
+
+        let operator_account = &mut ctx.accounts.operator_account;
+
+        require!(operator_account.bond_amount>= amount, CustomError::InsufficientBond);
+
+        operator_account.bond_amount-= amount;
+
+        **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()?-= amount;
+        **ctx.accounts.treasury.to_account_info().try_borrow_mut_lamports()? += amount;
+        Ok(())
+    }
+
+    pub fn initialize_reward_treasury(ctx: Context<InitializeRewardTreasury>) -> Result<()> {
+       let treasury = &mut ctx.accounts.treasury;
+       treasury.authority = ctx.accounts.authority.key();
+       treasury.bump = ctx.bumps.treasury;
+       treasury.total_rewards_distributed = 0;
+       Ok(())
+   }
 }
 
 #[derive(Accounts)]
@@ -437,6 +497,7 @@ pub struct ClaimUnstake<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+
 #[derive(Accounts)]
 pub struct RegisterOperator<'info>{
 
@@ -458,13 +519,13 @@ pub struct RegisterOperator<'info>{
 #[derive(Accounts)]
 pub struct UpdateOperatorMetadata<'info>{
     #[account(mut)]
-    pub operator_key: Signer<'info>,
+    pub owner: Signer<'info>,
 
     #[account(
         mut ,
-        seeds = [b"operator", operator_key.key().as_ref()],
+        seeds = [b"operator", owner.key().as_ref()],
         bump = operator_account.bump,
-        has_one = owner@ CustomError::Unauthorized
+        has_one = owner @ CustomError::Unauthorized
     )]
     pub operator_account: Account<'info , OperatorAccount>
 }
@@ -479,11 +540,62 @@ pub struct DeRegisterOperator<'info>{
         mut ,
         seeds = [b"operator", operator_key.key().as_ref()],
         bump = operator_account.bump,
-        close = operator
+        close = operator_key
     )]
     pub operator_account: Account<'info , OperatorAccount>
 
 }
+
+#[derive(Accounts)]
+pub struct SlashOperator<'info>{
+
+    #[account(mut)]
+    pub operator_account : Account<'info , OperatorAccount>,
+
+    #[account(
+        mut,
+        seeds = [b"reward_treasury"],
+        bump = treasury.bump
+    )]
+    pub treasury : Account<'info, RewardTreasury>
+}
+
+#[derive(Accounts)]
+pub struct InitializeRewardTreasury<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + RewardTreasury::INIT_SPACE,
+        seeds = [b"reward_treasury"],
+        bump
+    )]
+    pub treasury: Account<'info, RewardTreasury>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ClaimRewards<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        mut,
+        constraint = user_restaking_account.user == user.key()
+    )]
+    pub user_restaking_account: Account<'info, UserRestakingAccount>,
+
+    #[account(
+        mut,
+        seeds = [b"reward_treasury"],
+        bump = treasury.bump
+    )]
+    pub treasury: Account<'info, RewardTreasury>,
+}
+
 
 #[account]
 #[derive(InitSpace, Debug)]
@@ -528,6 +640,8 @@ pub struct UserRestakingAccount {
     pub bump: u8,
     pub cooldown_end_slot: u64,
     pub pending_unstake: u64,
+    pub reward_debt: u64,
+    pub last_claimed_slot: u64,
 }
 
 #[account]
@@ -542,6 +656,16 @@ pub struct OperatorAccount{
     pub bump:u8
 }
 
+
+#[account]
+#[derive(InitSpace, Debug)]
+pub struct RewardTreasury {
+    pub authority: Pubkey,
+    pub bump: u8,
+    pub total_rewards_distributed: u64,
+}
+
+
 #[error_code]
 pub enum CustomError {
     #[msg("Cooldown not finished yet")]
@@ -554,4 +678,6 @@ pub enum CustomError {
     Unauthorized,
     #[msg("Insufficient bond to slash")]
     InsufficientBond,
+    #[msg("Not enough lamports in treasury")]
+    InsufficientTreasuryBalance,
 }
