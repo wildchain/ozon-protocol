@@ -15,7 +15,7 @@ pub mod staking {
         jitoSol_mint: Pubkey,
         rm_sol_mint: Pubkey,
         rjito_sol_mint: Pubkey,
-    ) -> Result<()> {
+    ) -> Result<()> {    //our side
         let state = &mut ctx.accounts.state;
         state.authority = ctx.accounts.authority.key();
         state.msol_mint = msol_mint;
@@ -29,7 +29,7 @@ pub mod staking {
     pub fn initialize_vault_account(
         ctx: Context<InitializeVault>,
         token_mint: Pubkey,
-    ) -> Result<()> {
+    ) -> Result<()> { //our side
         let vault_account = &mut ctx.accounts.vault_account;
         vault_account.token_mint = token_mint;
         vault_account.vault = ctx.accounts.vault.key();
@@ -43,7 +43,7 @@ pub mod staking {
         ctx: Context<InitializeMintAccount>,
         base_mint: Pubkey,
         restaked_mint: Pubkey,
-    ) -> Result<()> {
+    ) -> Result<()> { //our side
         let mint_account = &mut ctx.accounts.mint_account;
         let vault_account = &ctx.accounts.vault_account;
 
@@ -59,7 +59,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn restake(ctx: Context<Restake>, amount: u64) -> Result<()> {
+    pub fn restake(ctx: Context<Restake>, amount: u64) -> Result<()> { // user side calling 
         let vault_account = &mut ctx.accounts.vault_account;
         let mint_account = &mut ctx.accounts.mint_account;
         let user_account = &mut ctx.accounts.user_restaking_account;
@@ -121,7 +121,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn request_unstake(ctx: Context<RequestUnstake>, restaked_amount: u64) -> Result<()> {
+    pub fn request_unstake(ctx: Context<RequestUnstake>, restaked_amount: u64) -> Result<()> { // user side 
         let user_account = &mut ctx.accounts.user_restaking_account;
         let _mint_account = &ctx.accounts.mint_account;
 
@@ -141,7 +141,7 @@ pub mod staking {
         Ok(())
     }
 
-  pub fn claim_unstake(ctx: Context<ClaimUnstake>) -> Result<()> {
+  pub fn claim_unstake(ctx: Context<ClaimUnstake>) -> Result<()> { // user side 
         let vault_account = &mut ctx.accounts.vault_account;
         let mint_account = &mut ctx.accounts.mint_account;
         let user_account = &mut ctx.accounts.user_restaking_account;
@@ -195,7 +195,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> {
+    pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> { //user side 
             let user_account = &mut ctx.accounts.user_restaking_account;
             let treasury = &mut ctx.accounts.treasury;
 
@@ -232,7 +232,7 @@ pub mod staking {
 
 
 
-    pub fn initialize_operator(ctx: Context<RegisterOperator>, bond_amount:u64 , metadata:String)->Result<()>{
+    pub fn initialize_operator(ctx: Context<RegisterOperator>, bond_amount:u64 , metadata:String)->Result<()>{ // cli
         let operator_account = &mut ctx.accounts.operator_account;
 
         require!(bond_amount >= 20000000000, CustomError::NotEnoughToken);
@@ -249,7 +249,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn update_operator_metadata( ctx: Context<UpdateOperatorMetadata>, metadata : String)->Result<()>{
+    pub fn update_operator_metadata( ctx: Context<UpdateOperatorMetadata>, metadata : String)->Result<()>{ //cli 
 
         let operator_account = &mut ctx.accounts.operator_account;
         require!(operator_account.owner== ctx.accounts.owner.key(), CustomError::Unauthorized);
@@ -259,7 +259,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn de_register_operator(ctx: Context<DeRegisterOperator>)->Result<()>{
+    pub fn de_register_operator(ctx: Context<DeRegisterOperator>)->Result<()>{ //cli
         let operator_account = &mut ctx.accounts.operator_account;
         require!(operator_account.owner == ctx.accounts.operator_key.key(), CustomError::Unauthorized);
 
@@ -271,7 +271,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn slash_operator(ctx: Context<SlashOperator>, amount: u64)->Result<()>{
+    pub fn slash_operator(ctx: Context<SlashOperator>, amount: u64)->Result<()>{ //-
 
         let operator_account = &mut ctx.accounts.operator_account;
 
@@ -284,7 +284,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn initialize_reward_treasury(ctx: Context<InitializeRewardTreasury>) -> Result<()> {
+    pub fn initialize_reward_treasury(ctx: Context<InitializeRewardTreasury>) -> Result<()> { //our side .
        let treasury = &mut ctx.accounts.treasury;
        treasury.authority = ctx.accounts.authority.key();
        treasury.bump = ctx.bumps.treasury;
