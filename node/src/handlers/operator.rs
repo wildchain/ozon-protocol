@@ -1,6 +1,13 @@
 use axum::Json;
 
+use anchor_client::{
+    Client, Cluster,
+    solana_sdk::commitment_config::CommitmentConfig,
+    solana_sdk::signature::{Keypair, Signer, read_keypair_file},
+};
 use serde::{Deserialize, Serialize};
+
+use std::rc::Rc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisterRequest {

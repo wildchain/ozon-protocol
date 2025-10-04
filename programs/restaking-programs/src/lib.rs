@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 // This is your program's public key and it will update
 // automatically when you build the project.
-declare_id!("Ba85dhVQP6y63iw2A892iEmyfbY4eaEwiMd8UkKCMgEQ");
+declare_id!("4jVc3F5bxKZ74rjSd62jWqnRgqyNqQFwjdqSNXunAmAj");
 
 #[program]
 pub mod staking {
