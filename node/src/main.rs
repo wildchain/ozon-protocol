@@ -1,28 +1,6 @@
-use axum::{
-    Json, Router,
-    routing::{get, post},
-};
-use serde::{Deserialize, Serialize};
+mod handlers;
+use handlers::router::new_router;
 use tokio::net::TcpListener;
-
-#[derive(Debug, Serialize, Deserialize)]
-struct RegisterRequest {
-    operator: String,
-}
-
-async fn register(Json(payload): Json<RegisterRequest>) -> Json<String> {
-    Json(format!("Registered Operator: {}", payload.operator))
-}
-
-async fn status() -> Json<&'static str> {
-    Json("Node is running")
-}
-
-fn new_router() -> Router {
-    Router::new()
-        .route("/register", post(register))
-        .route("/check", get(status))
-}
 
 #[tokio::main]
 async fn main() {
