@@ -3,10 +3,10 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 // This is your program's public key and it will update
 // automatically when you build the project.
-declare_id!("4jVc3F5bxKZ74rjSd62jWqnRgqyNqQFwjdqSNXunAmAj");
+declare_id!("FmTfR4hMvkr3DotVetGJrXbmfhqYr78rSRWj9vDvqRKQ");
 
 #[program]
-pub mod staking {
+pub mod restaking_programs{
     use super::*;
 
     pub fn initialize_state_account(
@@ -15,7 +15,7 @@ pub mod staking {
         jitoSol_mint: Pubkey,
         rm_sol_mint: Pubkey,
         rjito_sol_mint: Pubkey,
-    ) -> Result<()> {    //our side
+    ) -> Result<()> {
         let state = &mut ctx.accounts.state;
         state.authority = ctx.accounts.authority.key();
         state.msol_mint = msol_mint;
@@ -29,7 +29,7 @@ pub mod staking {
     pub fn initialize_vault_account(
         ctx: Context<InitializeVault>,
         token_mint: Pubkey,
-    ) -> Result<()> { //our side
+    ) -> Result<()> {
         let vault_account = &mut ctx.accounts.vault_account;
         vault_account.token_mint = token_mint;
         vault_account.vault = ctx.accounts.vault.key();
@@ -43,7 +43,7 @@ pub mod staking {
         ctx: Context<InitializeMintAccount>,
         base_mint: Pubkey,
         restaked_mint: Pubkey,
-    ) -> Result<()> { //our side
+    ) -> Result<()> {
         let mint_account = &mut ctx.accounts.mint_account;
         let vault_account = &ctx.accounts.vault_account;
 
@@ -59,7 +59,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn restake(ctx: Context<Restake>, amount: u64) -> Result<()> { // user side calling 
+    pub fn restake(ctx: Context<Restake>, amount: u64) -> Result<()> {
         let vault_account = &mut ctx.accounts.vault_account;
         let mint_account = &mut ctx.accounts.mint_account;
         let user_account = &mut ctx.accounts.user_restaking_account;
@@ -121,7 +121,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn request_unstake(ctx: Context<RequestUnstake>, restaked_amount: u64) -> Result<()> { // user side 
+    pub fn request_unstake(ctx: Context<RequestUnstake>, restaked_amount: u64) -> Result<()> {
         let user_account = &mut ctx.accounts.user_restaking_account;
         let _mint_account = &ctx.accounts.mint_account;
 
@@ -141,7 +141,7 @@ pub mod staking {
         Ok(())
     }
 
-  pub fn claim_unstake(ctx: Context<ClaimUnstake>) -> Result<()> { // user side 
+  pub fn claim_unstake(ctx: Context<ClaimUnstake>) -> Result<()> {
         let vault_account = &mut ctx.accounts.vault_account;
         let mint_account = &mut ctx.accounts.mint_account;
         let user_account = &mut ctx.accounts.user_restaking_account;
@@ -195,7 +195,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> { //user side 
+    pub fn claim_rewards(ctx: Context<ClaimRewards>) -> Result<()> {
             let user_account = &mut ctx.accounts.user_restaking_account;
             let treasury = &mut ctx.accounts.treasury;
 
@@ -208,7 +208,6 @@ pub mod staking {
 
             require!(elapsed_slots > 0, CustomError::NothingToClaim);
 
-            // Simple reward model: 1 lamport per slot per staked token
             let reward_rate: u64 = 1; // can adjust for demo
             let rewards = elapsed_slots
                 .checked_mul(user_account.restaked_amount)
@@ -232,24 +231,37 @@ pub mod staking {
 
 
 
-    pub fn initialize_operator(ctx: Context<RegisterOperator>, bond_amount:u64 , metadata:String)->Result<()>{ // cli
-        let operator_account = &mut ctx.accounts.operator_account;
+    pub fn initialize_operator(ctx: Context<RegisterOperator>, bond_amount: u64, metadata: String) -> Result<()> {
+                let operator_account = &mut ctx.accounts.operator_account;
 
-        require!(bond_amount >= 20000000000, CustomError::NotEnoughToken);
+                require!(bond_amount >= 20000000000, CustomError::NotEnoughToken);
 
-        operator_account.owner = ctx.accounts.operator_key.key();
-        operator_account.bond_amount = bond_amount;
-        operator_account.metadata = metadata;
-        operator_account.active = true ;
-        operator_account.avs_count = 0;
-        operator_account.bump = ctx.bumps.operator_account;
+                operator_account.owner = ctx.accounts.operator_key.key();
+                operator_account.bond_amount = bond_amount;
+                operator_account.metadata = metadata;
+                operator_account.active = true;
+                operator_account.avs_count = 0;
+                operator_account.bump = ctx.bumps.operator_account;
 
-        **ctx.accounts.operator_key.to_account_info().try_borrow_mut_lamports()? -= bond_amount;
-        **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()?+= bond_amount;
-        Ok(())
-    }
+                let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+                    &ctx.accounts.operator_key.key(),
+                    &ctx.accounts.operator_account.key(),
+                    bond_amount,
+                );
+                
+                anchor_lang::solana_program::program::invoke(
+                    &transfer_ix,
+                    &[
+                        ctx.accounts.operator_key.to_account_info(),
+                        ctx.accounts.operator_account.to_account_info(),
+                    ],
+                )?;
 
-    pub fn update_operator_metadata( ctx: Context<UpdateOperatorMetadata>, metadata : String)->Result<()>{ //cli 
+                Ok(())
+            }
+
+
+    pub fn update_operator_metadata( ctx: Context<UpdateOperatorMetadata>, metadata : String)->Result<()>{
 
         let operator_account = &mut ctx.accounts.operator_account;
         require!(operator_account.owner== ctx.accounts.owner.key(), CustomError::Unauthorized);
@@ -259,19 +271,25 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn de_register_operator(ctx: Context<DeRegisterOperator>)->Result<()>{ //cli
-        let operator_account = &mut ctx.accounts.operator_account;
-        require!(operator_account.owner == ctx.accounts.operator_key.key(), CustomError::Unauthorized);
+    pub fn de_register_operator(ctx: Context<DeRegisterOperator>)->Result<()>{
+        require!(
+            ctx.accounts.operator_account.owner == ctx.accounts.operator_key.key(), 
+            CustomError::Unauthorized
+        );
+        
+        let bond_amount = ctx.accounts.operator_account.bond_amount;
 
-        let bond_amount = operator_account.bond_amount;
-        operator_account.active = false;
-        **ctx.accounts.operator_key.to_account_info().try_borrow_mut_lamports()? += operator_account.bond_amount;
-        **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()? -= operator_account.bond_amount;
       
+        **ctx.accounts.operator_key.to_account_info().try_borrow_mut_lamports()? += bond_amount;
+        **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()? -= bond_amount;
+        
+        let operator_account = &mut ctx.accounts.operator_account;
+        operator_account.active = false;
+        
         Ok(())
     }
-
-    pub fn slash_operator(ctx: Context<SlashOperator>, amount: u64)->Result<()>{ //-
+    
+    pub fn slash_operator(ctx: Context<SlashOperator>, amount: u64)->Result<()>{
 
         let operator_account = &mut ctx.accounts.operator_account;
 
@@ -284,7 +302,7 @@ pub mod staking {
         Ok(())
     }
 
-    pub fn initialize_reward_treasury(ctx: Context<InitializeRewardTreasury>) -> Result<()> { //our side .
+    pub fn initialize_reward_treasury(ctx: Context<InitializeRewardTreasury>) -> Result<()> {
        let treasury = &mut ctx.accounts.treasury;
        treasury.authority = ctx.accounts.authority.key();
        treasury.bump = ctx.bumps.treasury;
