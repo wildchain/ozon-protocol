@@ -1,9 +1,8 @@
 use axum::Json;
 
 use anchor_client::{
+    solana_sdk::signature::{read_keypair_file, Keypair},
     Client, Cluster,
-    solana_sdk::commitment_config::CommitmentConfig,
-    solana_sdk::signature::{Keypair, Signer, read_keypair_file},
 };
 use serde::{Deserialize, Serialize};
 
@@ -12,10 +11,11 @@ use std::rc::Rc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisterRequest {
-    operator: String,
+    bond_amount: u64,
+    metadata: String,
 }
 
-fn get_client() -> Client {
+fn get_client() -> Client<Rc<Keypair>> {
     let wallet_path = dirs::home_dir()
         .expect("home dir")
         .join(".config/solana/id.json");
@@ -23,22 +23,22 @@ fn get_client() -> Client {
     Client::new(Cluster::Devnet, Rc::new(payer))
 }
 
-pub async fn register(Json(payload): Json<ResgisterRequest>) -> Json<String> {
+pub async fn register(Json(payload): Json<RegisterRequest>) -> Json<String> {
     let client = get_client();
-    let program = client.program(restaking_programs::id);
+    let program = client
+        .program(restaking_programs::id())
+        .expect("program id valid");
 
     let result = program
         .request()
-        .args(restaking_programs::instruction::initialize_operator {
-            name: payload.operator.clone(),
+        .args(restaking_programs::instruction::InitializeOperator {
+            bond_amount: payload.bond_amount,
+            metadata: payload.metadata.clone(),
         })
         .send();
 
     match result {
-        Ok(sig) => Json(format!(
-            "✅ Operator {} initialized with tx {}",
-            payload.operator, sig
-        )),
+        Ok(sig) => Json(format!("✅ Operator initialized with tx {}", sig)),
         Err(err) => Json(format!("❌ Failed to initialize operator: {:?}", err)),
     }
 }

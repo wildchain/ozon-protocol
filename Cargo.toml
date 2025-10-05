@@ -1,10 +1,12 @@
 [workspace]
-members = ["node", "programs/restaking-programs"]
+members = ["operator-nodes-client", "programs/restaking-programs", "ozon-cli"]
 resolver = "2"
 
 # [workspace.dependencies]
 # anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 # anchor-spl = { version = "0.31.1" }
+[workspace.dependencies]
+solana-program = "=2.1.0"
 
 [profile.release]
 overflow-checks = true
