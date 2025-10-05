@@ -1,12 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer};
 
-// This is your program's public key and it will update
-// automatically when you build the project.
-declare_id!("CPwqsEgjKdPmeFBFspnAjRBPkTX9buLLU1shvswb3NL5");
+declare_id!("9HwW8UiTiA1cW5KqGMcNAHExoMKTvMWeq4VoXNxdw6C8");
 
 #[program]
-pub mod restaking_programs{
+pub mod restaking_programs {
     use super::*;
 
     pub fn initialize_state_account(
