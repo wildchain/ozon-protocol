@@ -1,10 +1,12 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer};
 
-declare_id!("9HwW8UiTiA1cW5KqGMcNAHExoMKTvMWeq4VoXNxdw6C8");
+// This is your program's public key and it will update
+// automatically when you build the project.
+declare_id!("HeFGyvQRKVhutvhSfKPsr9WwkcqKfGm2c7cLXyKcWgVv");
 
 #[program]
-pub mod restaking_programs {
+pub mod restaking_programs{
     use super::*;
 
     pub fn initialize_state_account(
@@ -31,7 +33,6 @@ pub mod restaking_programs {
         let vault_account = &mut ctx.accounts.vault_account;
         vault_account.token_mint = token_mint;
         vault_account.vault = ctx.accounts.vault.key();
-        // Fix: Access bump directly as a field
         vault_account.bump = ctx.bumps.vault_account;
         vault_account.total_deposited = 0;
         Ok(())
@@ -48,7 +49,6 @@ pub mod restaking_programs {
         mint_account.base_mint = base_mint;
         mint_account.restaked_mint = restaked_mint;
         mint_account.vault = vault_account.key();
-        // Fix: Access bump directly as a field
         mint_account.bump = ctx.bumps.mint_account;
         mint_account.total_minted = 0;
         mint_account.exchange_rate = 1_000_000_000;
@@ -307,6 +307,60 @@ pub mod restaking_programs {
        treasury.total_rewards_distributed = 0;
        Ok(())
    }
+
+    pub fn register_avs(ctx: Context<RegisterAvs>, metadata:String , registration_fee: u64)->Result<()>{
+      
+        let avs_owner_ai = ctx.accounts.avs_owner.to_account_info();
+        let avs_account_ai = ctx.accounts.avs_account.to_account_info();
+
+        require!(registration_fee >= 2_000_000_000, CustomError::NotEnoughToken);
+        
+        let transfer_sol = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.avs_owner.key(), 
+            &ctx.accounts.avs_account.key(), 
+            registration_fee,
+        );
+
+        anchor_lang::solana_program::program::invoke(
+            &transfer_sol,
+            &[avs_owner_ai.clone(), avs_account_ai.clone()],
+        )?;
+
+        
+        let avs_account = &mut ctx.accounts.avs_account;
+        let treasury = &mut ctx.accounts.treasury;
+
+        let treasury_share = registration_fee / 2;
+        **avs_account.to_account_info().try_borrow_mut_lamports()? -= treasury_share;
+        **treasury.to_account_info().try_borrow_mut_lamports()? += treasury_share;
+
+        avs_account.owner = ctx.accounts.avs_owner.key();
+        avs_account.metadata = metadata;
+        avs_account.registration_fee = registration_fee;
+        avs_account.active = true;
+        avs_account.registered_slot = Clock::get()?.slot;
+        avs_account.bump = ctx.bumps.avs_account;
+
+        Ok(())
+    }
+
+    pub fn update_avs_metadata(ctx: Context<UpdateAvsMetadata>, metadata: String )-> Result<()>{
+        let avs_account = &mut ctx.accounts.avs_account;
+
+        require!(avs_account.owner == ctx.accounts.avs_owner.key(), CustomError::Unauthorized);
+        avs_account.metadata = metadata;
+        
+        Ok(())
+    }
+    
+
+    pub fn de_register_avs(ctx: Context<DeRegisterAvs>) -> Result<()> {
+            let avs_account = &mut ctx.accounts.avs_account;
+            require!(avs_account.owner == ctx.accounts.avs_owner.key(), CustomError::Unauthorized);
+
+            avs_account.active = false;
+            Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -422,33 +476,6 @@ pub struct Restake<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// #[derive(Accounts)]
-// pub struct Unstake<'info>{
-
-//     #[account(mut)]
-//     pub user : Singer<'info>,
-
-//     #[account(mut)]
-//     pub user_restaked_token: InterfaceAccount<'info, TokenAccount>,
-
-//     #[account(mut)]
-//     pub restaked_mint: InterfaceAccount<'info, Mint>,
-
-//     #[account(mut)]
-//     pub user_base_token: InterfaceAccount<'info, TokenAccount>,
-
-//     #[account(mut)]
-//     pub vault_account : Account<'info , VaultAccount>,
-
-//     #[account(mut)]
-//     pub vault : InterfaceAccount<'info , TokenAccount>,
-
-//     #[account(mut)]
-//     pub mint_account: Account<'info, MintAccount>,
-
-//     pub token_program: Program<'info, Token>,
-
-// }
 
 #[derive(Accounts)]
 pub struct RequestUnstake<'info> {
@@ -612,6 +639,58 @@ pub struct ClaimRewards<'info> {
     pub treasury: Account<'info, RewardTreasury>,
 }
 
+#[derive(Accounts)]
+pub struct RegisterAvs<'info>{
+
+    #[account(mut)]
+    pub avs_owner : Signer<'info>,
+
+    #[account(
+        init ,
+        payer = avs_owner,
+        space = 8 + AvsAccount::INIT_SPACE,
+        seeds = [b"avs" , avs_owner.key().as_ref()],
+        bump
+    )]
+    pub avs_account : Account<'info , AvsAccount>,
+
+    #[account(
+        mut ,
+        seeds = [b"reward_treasury"],
+        bump = treasury.bump
+    )]
+    pub treasury: Account<'info , RewardTreasury>,
+
+    pub system_program : Program<'info , System>
+}
+
+#[derive(Accounts)]
+pub struct UpdateAvsMetadata<'info>{
+    #[account(mut)]
+    pub avs_owner: Signer<'info>,
+
+    #[account(
+        mut ,
+        seeds = [b"avs", avs_owner.key().as_ref()],
+        bump = avs_account.bump,
+    )]
+    pub avs_account: Account<'info , AvsAccount>
+}
+
+#[derive(Accounts)]
+pub struct DeRegisterAvs<'info>{
+    #[account(mut)]
+    pub avs_owner : Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"avs", avs_owner.key().as_ref()],
+        bump = avs_account.bump,
+        close = avs_owner
+    )]
+    pub avs_account : Account<'info , AvsAccount>
+}
+
 
 #[account]
 #[derive(InitSpace, Debug)]
@@ -679,6 +758,25 @@ pub struct RewardTreasury {
     pub authority: Pubkey,
     pub bump: u8,
     pub total_rewards_distributed: u64,
+}
+
+
+#[account]
+#[derive(InitSpace, Debug)]
+pub struct AvsAccount{
+    pub owner: Pubkey,
+    #[max_len(100)]
+    pub metadata: String,
+    pub registration_fee : u64,
+    pub active : bool,
+    pub slashing_policy : Pubkey,
+    pub registered_slot : u64,
+    pub bump: u8,
+}
+
+pub struct SlashingPolicy {
+    pub misbehavior_type: u8,  // 0 = downtime, 1 = invalid signature, etc.
+    pub penalty_percent: u8,
 }
 
 

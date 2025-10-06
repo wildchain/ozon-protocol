@@ -30,6 +30,13 @@ enum Commands {
         #[arg(long)]
         wallet: Option<String>,
     },
+
+    DeRegisterOperator {
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
 }
 
 fn get_client(
@@ -93,6 +100,26 @@ fn main() -> Result<()> {
                 .send()?;
 
             println!("✅ Operator initialized with tx {sig}");
+        }
+        Commands::DeRegisterOperator { cluster, wallet } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = restaking_programs::id();
+            let program = client.program(program_id).expect("program id valid");
+
+            let (operator_account, _bump) =
+                Pubkey::find_program_address(&[b"operator", payer.pubkey().as_ref()], &program_id);
+
+            let sig = program
+                .request()
+                .accounts(restaking_programs::accounts::DeRegisterOperator {
+                    operator_key: payer.pubkey(),
+                    operator_account,
+                })
+                .args(restaking_programs::instruction::DeRegisterOperator {})
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ Operator de-registered with tx {sig}");
         }
     }
 
