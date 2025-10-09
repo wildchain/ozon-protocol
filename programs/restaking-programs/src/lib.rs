@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 // This is your program's public key and it will update
 // automatically when you build the project.
-declare_id!("HeFGyvQRKVhutvhSfKPsr9WwkcqKfGm2c7cLXyKcWgVv");
+declare_id!("5ihnX5uNEjTg2f8m6EfuA3LN1ChVZyjAaDTPhmRwgs6V");
 
 #[program]
 pub mod restaking_programs{
@@ -227,6 +227,21 @@ pub mod restaking_programs{
             Ok(())
          }
 
+    pub fn get_cooldown_end_slot(ctx: Context<GetUserData>,) -> Result<u64> {
+                let user_account = &ctx.accounts.user_restaking_account;
+                Ok(user_account.cooldown_end_slot)
+        }
+
+    pub fn get_pending_unstake(ctx: Context<GetUserData>) -> Result<u64> {
+                let user_account = &ctx.accounts.user_restaking_account;
+                Ok(user_account.pending_unstake)
+        }
+
+    pub fn get_reward_debt(ctx: Context<GetUserData>,) -> Result<u64> {
+                let user_account = &ctx.accounts.user_restaking_account;
+                Ok(user_account.reward_debt)
+        }
+
 
 
     pub fn initialize_operator(ctx: Context<RegisterOperator>, bond_amount: u64, metadata: String) -> Result<()> {
@@ -309,7 +324,7 @@ pub mod restaking_programs{
    }
 
     pub fn register_avs(ctx: Context<RegisterAvs>, metadata:String , registration_fee: u64)->Result<()>{
-      
+        // get AccountInfos (immutable borrows) and perform the transfer before taking mutable borrows
         let avs_owner_ai = ctx.accounts.avs_owner.to_account_info();
         let avs_account_ai = ctx.accounts.avs_account.to_account_info();
 
@@ -326,7 +341,7 @@ pub mod restaking_programs{
             &[avs_owner_ai.clone(), avs_account_ai.clone()],
         )?;
 
-        
+        // now take mutable borrows safely
         let avs_account = &mut ctx.accounts.avs_account;
         let treasury = &mut ctx.accounts.treasury;
 
@@ -361,6 +376,10 @@ pub mod restaking_programs{
             avs_account.active = false;
             Ok(())
     }
+
+    // pub fn operator_opt_in_avs(ctx: Context<> )-> Result<()>{
+    //     Ok(())
+    // }
 }
 
 #[derive(Accounts)]
@@ -691,6 +710,20 @@ pub struct DeRegisterAvs<'info>{
     pub avs_account : Account<'info , AvsAccount>
 }
 
+#[derive(Accounts)]
+pub struct GetUserData<'info> {
+    pub user: Signer<'info>,
+
+    #[account(
+        seeds = [b"user_restaking", user.key().as_ref(), restaked_mint.key().as_ref()],
+        bump = user_restaking_account.bump,
+        constraint = user_restaking_account.user == user.key()
+    )]
+    pub user_restaking_account: Account<'info, UserRestakingAccount>,
+
+    pub restaked_mint: Account<'info, Mint>,
+}
+
 
 #[account]
 #[derive(InitSpace, Debug)]
@@ -779,6 +812,25 @@ pub struct SlashingPolicy {
     pub penalty_percent: u8,
 }
 
+#[account]
+#[derive(InitSpace, Debug)]
+pub struct OperatorAvsRegistration {
+    pub operator: Pubkey,
+    pub avs: Pubkey,
+    pub opted_in_slot: u64,
+    pub active: bool,
+    pub tasks_completed: u64,
+    pub tasks_failed: u64,
+    pub bump: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct UserUnstakeInfo {
+    pub cooldown_end_slot: u64,
+    pub pending_unstake: u64,
+    pub reward_debt: u64,
+}
+
 
 #[error_code]
 pub enum CustomError {
@@ -794,4 +846,14 @@ pub enum CustomError {
     InsufficientBond,
     #[msg("Not enough lamports in treasury")]
     InsufficientTreasuryBalance,
+    #[msg("Avs not active to opt")]
+    AvsNotActive,
+    #[msg("Operator not active to run nodes")]
+    OperatorNotActive,
+    #[msg("Operator not opted into this AVS")]
+    OperatorNotOptedIn,
+    #[msg("Task not completed")]
+    TaskNotCompleted,
+    #[msg("Challenge already resolved")]
+    ChallengeAlreadyResolved,
 }
