@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 // This is your program's public key and it will update
 // automatically when you build the project.
-declare_id!("5ihnX5uNEjTg2f8m6EfuA3LN1ChVZyjAaDTPhmRwgs6V");
+declare_id!("GKXVhVwmetSyKqnA7uUPgE5L3BLRFgw4FceDzJB6kkwE");
 
 #[program]
 pub mod restaking_programs{
@@ -234,12 +234,14 @@ pub mod restaking_programs{
 
     pub fn get_pending_unstake(ctx: Context<GetUserData>) -> Result<u64> {
                 let user_account = &ctx.accounts.user_restaking_account;
-                Ok(user_account.pending_unstake)
+                let value = user_account.pending_unstake;
+                Ok(value)
         }
 
     pub fn get_reward_debt(ctx: Context<GetUserData>,) -> Result<u64> {
                 let user_account = &ctx.accounts.user_restaking_account;
-                Ok(user_account.reward_debt)
+                let value = user_account.reward_debt;
+                Ok(value)
         }
 
 
