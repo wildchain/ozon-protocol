@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 // This is your program's public key and it will update
 // automatically when you build the project.
-declare_id!("GKXVhVwmetSyKqnA7uUPgE5L3BLRFgw4FceDzJB6kkwE");
+declare_id!("G7yvDkDAg1R38i5d5B5WSWkPHX4pD8k7s3k3AaTqNG1f");
 
 #[program]
 pub mod restaking_programs{
@@ -189,6 +189,7 @@ pub mod restaking_programs{
             .checked_sub(restaked_amount)
             .unwrap();
         user_account.pending_unstake = 0;
+        user_account.last_claimed_slot = Clock::get()?.slot;// added because it was missed 
 
         Ok(())
     }
@@ -247,33 +248,40 @@ pub mod restaking_programs{
 
 
     pub fn initialize_operator(ctx: Context<RegisterOperator>, bond_amount: u64, metadata: String) -> Result<()> {
-                let operator_account = &mut ctx.accounts.operator_account;
+            let operator_account = &mut ctx.accounts.operator_account;
+            let vault = &mut ctx.accounts.vault;  // ← Get mutable reference to vault
 
-                require!(bond_amount >= 20000000000, CustomError::NotEnoughToken);
+            require!(bond_amount >= 2_000_000_000, CustomError::NotEnoughToken);
 
-                operator_account.owner = ctx.accounts.operator_key.key();
-                operator_account.bond_amount = bond_amount;
-                operator_account.metadata = metadata;
-                operator_account.active = true;
-                operator_account.avs_count = 0;
-                operator_account.bump = ctx.bumps.operator_account;
+         
+            operator_account.owner = ctx.accounts.operator_key.key();
+            operator_account.bond_amount = bond_amount;
+            operator_account.metadata = metadata;
+            operator_account.active = true;
+            operator_account.avs_count = 0;
+            operator_account.bump = ctx.bumps.operator_account;
+            operator_account.vault_bump = ctx.bumps.vault;
 
-                let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
-                    &ctx.accounts.operator_key.key(),
-                    &ctx.accounts.operator_account.key(),
-                    bond_amount,
-                );
-                
-                anchor_lang::solana_program::program::invoke(
-                    &transfer_ix,
-                    &[
-                        ctx.accounts.operator_key.to_account_info(),
-                        ctx.accounts.operator_account.to_account_info(),
-                    ],
-                )?;
+            
+            vault.bump = ctx.bumps.vault;
 
-                Ok(())
-            }
+        
+            let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+                &ctx.accounts.operator_key.key(),
+                &ctx.accounts.vault.key(),
+                bond_amount,
+            );
+            
+            anchor_lang::solana_program::program::invoke(
+                &transfer_ix,
+                &[
+                    ctx.accounts.operator_key.to_account_info(),
+                    ctx.accounts.vault.to_account_info(),
+                ],
+            )?;
+
+            Ok(())
+        }
 
 
     pub fn update_operator_metadata( ctx: Context<UpdateOperatorMetadata>, metadata : String)->Result<()>{
@@ -286,7 +294,7 @@ pub mod restaking_programs{
         Ok(())
     }
 
-    pub fn de_register_operator(ctx: Context<DeRegisterOperator>)->Result<()>{
+    pub fn de_register_operator(ctx: Context<DeRegisterOperator>) -> Result<()> {
         require!(
             ctx.accounts.operator_account.owner == ctx.accounts.operator_key.key(), 
             CustomError::Unauthorized
@@ -294,9 +302,8 @@ pub mod restaking_programs{
         
         let bond_amount = ctx.accounts.operator_account.bond_amount;
 
-      
         **ctx.accounts.operator_key.to_account_info().try_borrow_mut_lamports()? += bond_amount;
-        **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()? -= bond_amount;
+        **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= bond_amount;
         
         let operator_account = &mut ctx.accounts.operator_account;
         operator_account.active = false;
@@ -304,18 +311,24 @@ pub mod restaking_programs{
         Ok(())
     }
     
-    pub fn slash_operator(ctx: Context<SlashOperator>, amount: u64)->Result<()>{
+    pub fn slash_operator(ctx: Context<SlashOperator>, operator_owner: Pubkey,amount: u64) -> Result<()> {
+            let operator_account = &mut ctx.accounts.operator_account;
 
-        let operator_account = &mut ctx.accounts.operator_account;
+            require!(
+                operator_account.bond_amount >= amount, 
+                CustomError::InsufficientBond
+            );
 
-        require!(operator_account.bond_amount>= amount, CustomError::InsufficientBond);
+            operator_account.bond_amount = operator_account
+                .bond_amount
+                .checked_sub(amount)
+                .unwrap();
 
-        operator_account.bond_amount-= amount;
+            **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= amount;
+            **ctx.accounts.treasury.to_account_info().try_borrow_mut_lamports()? += amount;
 
-        **ctx.accounts.operator_account.to_account_info().try_borrow_mut_lamports()?-= amount;
-        **ctx.accounts.treasury.to_account_info().try_borrow_mut_lamports()? += amount;
-        Ok(())
-    }
+            Ok(())
+        }
 
     pub fn initialize_reward_treasury(ctx: Context<InitializeRewardTreasury>) -> Result<()> {
        let treasury = &mut ctx.accounts.treasury;
@@ -330,7 +343,7 @@ pub mod restaking_programs{
         let avs_owner_ai = ctx.accounts.avs_owner.to_account_info();
         let avs_account_ai = ctx.accounts.avs_account.to_account_info();
 
-        require!(registration_fee >= 2_000_000_000, CustomError::NotEnoughToken);
+        require!(registration_fee >= 3_000_000_000, CustomError::NotEnoughToken);
         
         let transfer_sol = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.avs_owner.key(), 
@@ -343,7 +356,7 @@ pub mod restaking_programs{
             &[avs_owner_ai.clone(), avs_account_ai.clone()],
         )?;
 
-        // now take mutable borrows safely
+       
         let avs_account = &mut ctx.accounts.avs_account;
         let treasury = &mut ctx.accounts.treasury;
 
@@ -563,13 +576,12 @@ pub struct ClaimUnstake<'info> {
 
 
 #[derive(Accounts)]
-pub struct RegisterOperator<'info>{
-
+pub struct RegisterOperator<'info> {
     #[account(mut)]
     pub operator_key: Signer<'info>,
 
     #[account(
-        init , 
+        init,
         payer = operator_key,
         space = 8 + OperatorAccount::INIT_SPACE,
         seeds = [b"operator", operator_key.key().as_ref()],
@@ -577,8 +589,18 @@ pub struct RegisterOperator<'info>{
     )]
     pub operator_account: Account<'info, OperatorAccount>,
 
-    pub system_program: Program<'info , System>,
+    #[account(
+        init,  
+        payer = operator_key,
+        space = 8 + OperatorVault::INIT_SPACE,
+        seeds = [b"vault", operator_key.key().as_ref()],
+        bump
+    )]
+    pub vault: Account<'info, OperatorVault>, 
+
+    pub system_program: Program<'info, System>,
 }
+
 
 #[derive(Accounts)]
 pub struct UpdateOperatorMetadata<'info>{
@@ -595,35 +617,58 @@ pub struct UpdateOperatorMetadata<'info>{
 }
 
 #[derive(Accounts)]
-pub struct DeRegisterOperator<'info>{
-
+pub struct DeRegisterOperator<'info> {
     #[account(mut)]
     pub operator_key: Signer<'info>,
 
     #[account(
-        mut ,
+        mut,
         seeds = [b"operator", operator_key.key().as_ref()],
         bump = operator_account.bump,
         close = operator_key
     )]
-    pub operator_account: Account<'info , OperatorAccount>
+    pub operator_account: Account<'info, OperatorAccount>,
 
+    /// Add the vault here too
+    #[account(
+        mut,
+        seeds = [b"vault", operator_key.key().as_ref()],
+        bump = operator_account.vault_bump,
+        close = operator_key  // Also close the vault
+    )]
+    pub vault: Account<'info, OperatorVault>,
+
+    pub system_program: Program<'info, System>,
 }
-
 #[derive(Accounts)]
-pub struct SlashOperator<'info>{
-
+#[instruction(operator_owner: Pubkey)]
+pub struct SlashOperator<'info> {
     #[account(mut)]
-    pub operator_account : Account<'info , OperatorAccount>,
+    pub authority: Signer<'info>, 
+
+   #[account(
+        mut,
+        seeds = [b"operator", operator_owner.as_ref()],  
+        bump = operator_account.bump,
+    )]
+    pub operator_account: Account<'info, OperatorAccount>,
+
+      #[account(
+        mut,
+        seeds = [b"vault", operator_owner.as_ref()], 
+        bump = operator_account.vault_bump
+    )]
+    pub vault:  Account<'info, OperatorVault>,
 
     #[account(
         mut,
         seeds = [b"reward_treasury"],
         bump = treasury.bump
     )]
-    pub treasury : Account<'info, RewardTreasury>
+    pub treasury: Account<'info, RewardTreasury>,
+    
+    pub system_program: Program<'info, System>,
 }
-
 #[derive(Accounts)]
 pub struct InitializeRewardTreasury<'info> {
     #[account(mut)]
@@ -758,7 +803,6 @@ pub struct MintAccount {
     pub exchange_rate: u64,
     pub last_update_slot: u64,
 }
-
 #[account]
 #[derive(InitSpace, Debug)]
 pub struct UserRestakingAccount {
@@ -776,14 +820,21 @@ pub struct UserRestakingAccount {
 
 #[account]
 #[derive(InitSpace, Debug)]
-pub struct OperatorAccount{
+pub struct OperatorAccount {
     pub owner: Pubkey,
-    pub bond_amount : u64,
+    pub bond_amount: u64,
     #[max_len(100)]
-    pub metadata: String ,
-    pub active : bool,
+    pub metadata: String,
+    pub active: bool,
     pub avs_count: u32,
-    pub bump:u8
+    pub bump: u8,
+    pub vault_bump: u8, 
+}
+
+#[account]
+#[derive(InitSpace, Debug)]
+pub struct OperatorVault {
+    pub bump: u8,
 }
 
 
