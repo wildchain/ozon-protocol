@@ -3,6 +3,7 @@ anchor_version = "0.31.1"
 package_manager = "yarn"
 
 [features]
+seeds = false
 resolution = true
 skip-lint = false
 
