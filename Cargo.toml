@@ -1,5 +1,5 @@
 [workspace]
-members = ["operator-nodes-client", "programs/restaking-programs", "programs/*"]
+members = ["operator-nodes-client", "ozon-cli", "programs/*"]
 resolver = "2"
 
 # [workspace.dependencies]

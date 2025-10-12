@@ -77,19 +77,23 @@ fn main() -> Result<()> {
             let (operator_account, _bump) =
                 Pubkey::find_program_address(&[b"operator", payer.pubkey().as_ref()], &program_id);
 
+            let (vault, _vault_bump) =
+                Pubkey::find_program_address(&[b"vault", payer.pubkey().as_ref()], &program_id);
+
             println!("🔍 Debug info:");
             println!("  Program ID: {}", program_id);
             println!("  Operator key: {}", payer.pubkey());
             println!("  Operator account PDA: {}", operator_account);
+            println!("  Vault PDA: {}", vault);
             println!("  Bond amount: {}", bond_amount);
             println!("  Metadata: {}", metadata);
 
-            // Try calling the method by name
             let sig = program
                 .request()
                 .accounts(restaking_programs::accounts::RegisterOperator {
                     operator_key: payer.pubkey(),
                     operator_account,
+                    vault,
                     system_program: system_program::ID,
                 })
                 .args(restaking_programs::instruction::InitializeOperator {
@@ -109,11 +113,16 @@ fn main() -> Result<()> {
             let (operator_account, _bump) =
                 Pubkey::find_program_address(&[b"operator", payer.pubkey().as_ref()], &program_id);
 
+            let (vault, _vault_bump) =
+                Pubkey::find_program_address(&[b"vault", payer.pubkey().as_ref()], &program_id);
+
             let sig = program
                 .request()
                 .accounts(restaking_programs::accounts::DeRegisterOperator {
                     operator_key: payer.pubkey(),
                     operator_account,
+                    vault,
+                    system_program: system_program::ID,
                 })
                 .args(restaking_programs::instruction::DeRegisterOperator {})
                 .signer(&*payer)

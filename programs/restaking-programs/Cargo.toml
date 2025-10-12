@@ -9,7 +9,7 @@ crate-type = ["cdylib", "lib"]
 name = "restaking_programs"
 
 [features]
-default = []
+default = ["idl-build"]
 anchor-debug = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []

@@ -3,13 +3,12 @@ anchor_version = "0.31.1"
 package_manager = "yarn"
 
 [features]
-seeds = false
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-restaking_programs = "G7yvDkDAg1R38i5d5B5WSWkPHX4pD8k7s3k3AaTqNG1f"
-avs_oracle = "GER4ctswvnc9TjBj98wA9FX1gMnQ4vmFSxNrAJZvWQXt"
+avs_oracle = "EcBvZM5dykhYdxuQheJhtH6s3f2SjTbUvnFCPTqXtWbJ"
+restaking_programs = "BE5MmYjpMo5khf2qnD7h4diCLytteM72uGF6CTztEbrz"
 
 [registry]
 url = "https://api.apr.dev"
@@ -20,9 +19,3 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
-
-[[programs.devnet.binary]]
-path = "target/deploy/restaking_programs.so"
-
-[[programs.devnet.binary]]
-path = "target/deploy/avs_oracle.so"
