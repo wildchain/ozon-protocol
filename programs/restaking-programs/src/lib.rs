@@ -392,9 +392,47 @@ pub mod restaking_programs{
             Ok(())
     }
 
-    // pub fn operator_opt_in_avs(ctx: Context<> )-> Result<()>{
-    //     Ok(())
-    // }
+    pub fn operator_opt_in_avs(ctx: Context<OptInAvs>, avs_owner: Pubkey ) -> Result<()> {
+            let operator_account = &mut ctx.accounts.operator_account;
+            let operator_avs_reg = &mut ctx.accounts.operator_avs_registration;
+            let avs_account = &ctx.accounts.avs_account;
+
+          
+            require!(
+                operator_account.active,
+                CustomError::OperatorNotActive
+            );
+
+     
+            require!(
+                avs_account.active,
+                CustomError::AvsNotActive
+            );
+
+
+            operator_avs_reg.operator = ctx.accounts.operator_key.key();
+            operator_avs_reg.avs = avs_account.key();  
+            operator_avs_reg.opted_in_slot = Clock::get()?.slot;
+            operator_avs_reg.active = true;
+            operator_avs_reg.tasks_completed = 0;
+            operator_avs_reg.tasks_failed = 0;
+            operator_avs_reg.bump = ctx.bumps.operator_avs_registration;
+
+
+            operator_account.avs_count = operator_account
+                .avs_count
+                .checked_add(1)
+                .unwrap();
+
+            msg!(
+                "✅ Operator {} opted into AVS {} (owner: {})",
+                operator_avs_reg.operator,
+                avs_account.key(),
+                avs_owner
+            );
+
+            Ok(())
+        }
 }
 
 #[derive(Accounts)]
@@ -769,6 +807,49 @@ pub struct GetUserData<'info> {
     pub user_restaking_account: Account<'info, UserRestakingAccount>,
 
     pub restaked_mint: Account<'info, Mint>,
+}
+
+
+#[derive(Accounts)]
+#[instruction(avs_owner: Pubkey)]  // ← Changed: this is the AVS owner pubkey
+pub struct OptInAvs<'info> {
+    #[account(mut)]
+    pub operator_key: Signer<'info>,
+
+   
+    #[account(
+        mut,
+        seeds = [b"operator", operator_key.key().as_ref()],
+        bump = operator_account.bump,
+        constraint = operator_account.active @ CustomError::OperatorNotActive,
+        constraint = operator_account.owner == operator_key.key() @ CustomError::Unauthorized
+    )]
+    pub operator_account: Account<'info, OperatorAccount>,
+
+    /// The AVS account - derived using AVS owner pubkey (same as RegisterAvs)
+    #[account(
+        seeds = [b"avs", avs_owner.as_ref()],  // ← Fixed: matches your RegisterAvs seeds
+        bump = avs_account.bump,
+        constraint = avs_account.active @ CustomError::AvsNotActive,
+        constraint = avs_account.owner == avs_owner @ CustomError::Unauthorized
+    )]
+    pub avs_account: Account<'info, AvsAccount>,
+
+    /// The registration account linking operator to AVS
+    #[account(
+        init,
+        payer = operator_key,
+        space = 8 + OperatorAvsRegistration::INIT_SPACE,
+        seeds = [
+            b"operator_avs",
+            operator_key.key().as_ref(),
+            avs_owner.as_ref()  
+        ],
+        bump
+    )]
+    pub operator_avs_registration: Account<'info, OperatorAvsRegistration>,
+
+    pub system_program: Program<'info, System>,
 }
 
 
