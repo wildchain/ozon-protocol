@@ -3,7 +3,9 @@ name = "restaking-programs"
 version = "0.1.0"
 description = "Ozon Restaking Solana Program that is responsible for restaking user tokens to Ozon protocol. It also comes up with onchain instructions to manage and register operators and AVSs with the Ozon protocol."
 edition = "2021"
-authors = ["Bristin Borah  bristinozon@gmail.com"]
+license = "Apache-2.0"
+authors = ["Bristin Borah <bristinozon@gmail.com>"]
+repository = "https://github.com/wildchain/ozon_contract"
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -25,4 +27,3 @@ anchor-spl = { version = "0.31.1" }
 zeroize = "1.3.0"
 proc-macro2 = "1.0.70"
 pyth-solana-receiver-sdk = "1.0.1"
-restaking_programs = "0.1.0"
