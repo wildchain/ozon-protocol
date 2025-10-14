@@ -37,6 +37,33 @@ enum Commands {
         #[arg(long)]
         wallet: Option<String>,
     },
+
+    RegisterAvs {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        registration_fee: u64,
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
+
+    UpdateAvsMetadata {
+        #[arg(long)]
+        name: String,
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
+
+    DeRegisterAvs {
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
 }
 
 fn get_client(
@@ -77,19 +104,23 @@ fn main() -> Result<()> {
             let (operator_account, _bump) =
                 Pubkey::find_program_address(&[b"operator", payer.pubkey().as_ref()], &program_id);
 
+            let (vault, _vault_bump) =
+                Pubkey::find_program_address(&[b"vault", payer.pubkey().as_ref()], &program_id);
+
             println!("🔍 Debug info:");
             println!("  Program ID: {}", program_id);
             println!("  Operator key: {}", payer.pubkey());
             println!("  Operator account PDA: {}", operator_account);
+            println!("  Vault PDA: {}", vault);
             println!("  Bond amount: {}", bond_amount);
             println!("  Metadata: {}", metadata);
 
-            // Try calling the method by name
             let sig = program
                 .request()
                 .accounts(restaking_programs::accounts::RegisterOperator {
                     operator_key: payer.pubkey(),
                     operator_account,
+                    vault,
                     system_program: system_program::ID,
                 })
                 .args(restaking_programs::instruction::InitializeOperator {
@@ -109,17 +140,117 @@ fn main() -> Result<()> {
             let (operator_account, _bump) =
                 Pubkey::find_program_address(&[b"operator", payer.pubkey().as_ref()], &program_id);
 
+            let (vault, _vault_bump) =
+                Pubkey::find_program_address(&[b"vault", payer.pubkey().as_ref()], &program_id);
+
             let sig = program
                 .request()
                 .accounts(restaking_programs::accounts::DeRegisterOperator {
                     operator_key: payer.pubkey(),
                     operator_account,
+                    vault,
+                    system_program: system_program::ID,
                 })
                 .args(restaking_programs::instruction::DeRegisterOperator {})
                 .signer(&*payer)
                 .send()?;
 
             println!("✅ Operator de-registered with tx {sig}");
+        }
+        Commands::RegisterAvs {
+            name,
+            registration_fee,
+            cluster,
+            wallet,
+        } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = restaking_programs::id();
+            let program = client.program(program_id).expect("Program id invalid");
+            let (avs_account, _bump) =
+                Pubkey::find_program_address(&[b"avs", payer.pubkey().as_ref()], &program_id);
+            let (treasury, _treasury_bump) =
+                Pubkey::find_program_address(&[b"reward_treasury"], &program_id);
+
+            println!("🔍 Debug info:");
+            println!("  Program ID: {}", program_id);
+            println!("  AVS owner: {}", payer.pubkey());
+            println!("  AVS account PDA: {}", avs_account);
+            println!("  Treasury PDA: {}", treasury);
+            println!("  Registration fee: {}", registration_fee);
+            println!("  Avs Name: {}", name);
+
+            let sig = program
+                .request()
+                .accounts(restaking_programs::accounts::RegisterAvs {
+                    avs_owner: payer.pubkey(),
+                    avs_account,
+                    treasury,
+                    system_program: system_program::ID,
+                })
+                .args(restaking_programs::instruction::RegisterAvs {
+                    metadata: name,
+                    registration_fee,
+                })
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ Avs registered with tx {} ", sig);
+        }
+        Commands::UpdateAvsMetadata {
+            name,
+            cluster,
+            wallet,
+        } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = restaking_programs::id();
+            let program = client.program(program_id).expect("Program id is invalid");
+
+            let (avs_account, _bump) =
+                Pubkey::find_program_address(&[b"avs", payer.pubkey().as_ref()], &program_id);
+
+            println!("🔍 Debug info:");
+            println!("  Program ID: {}", program_id);
+            println!("  AVS owner: {}", payer.pubkey());
+            println!("  AVS account PDA: {}", avs_account);
+            println!("  New Avs Name: {}", name);
+
+            let sig = program
+                .request()
+                .accounts(restaking_programs::accounts::UpdateAvsMetadata {
+                    avs_owner: payer.pubkey(),
+                    avs_account,
+                })
+                .args(restaking_programs::instruction::UpdateAvsMetadata { metadata: name })
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ AVS metadata updated with tx {}", sig);
+        }
+
+        Commands::DeRegisterAvs { cluster, wallet } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = restaking_programs::id();
+            let program = client.program(program_id).expect("program id valid");
+
+            let (avs_account, _bump) =
+                Pubkey::find_program_address(&[b"avs", payer.pubkey().as_ref()], &program_id);
+
+            println!("🔍 Debug info:");
+            println!("  Program ID: {}", program_id);
+            println!("  AVS owner: {}", payer.pubkey());
+            println!("  AVS account PDA: {}", avs_account);
+
+            let sig = program
+                .request()
+                .accounts(restaking_programs::accounts::DeRegisterAvs {
+                    avs_owner: payer.pubkey(),
+                    avs_account,
+                })
+                .args(restaking_programs::instruction::DeRegisterAvs {})
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ AVS de-registered with tx {}", sig);
         }
     }
 

@@ -1,0 +1,22 @@
+[package]
+name = "avs-oracle"
+version = "0.1.0"
+description = "AVS Oracle task management and verification"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "avs_oracle"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "0.31.1"
+pyth-solana-receiver-sdk = "1.0.1"
+restaking-programs = { path = "../restaking-programs", features = ["cpi"] }
