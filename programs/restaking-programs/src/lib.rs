@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 // This is your program's public key and it will update
 // automatically when you build the project.
-declare_id!("6UqcKJ3U7zfr5JkhzjDZQsunbJeFBxgCKYbuMw8Scv6B");
+declare_id!("62y9ujieacL7yA9L6twLCvEoU3vVsZvvwjq7Z1E7TSPM");
 
 #[program]
 pub mod restaking_programs{
@@ -116,12 +116,25 @@ pub mod restaking_programs{
             .checked_add(restaked_amount)
             .unwrap();
 
+            emit!(RestakeEvent{
+                    user: ctx.accounts.user.key(),
+                    base_mint: mint_account.base_mint,
+                    restaked_mint: mint_account.restaked_mint,
+                    amount_deposited: amount,
+                    restaked_amount,
+                    exchange_rate: mint_account.exchange_rate,
+                });
+
         Ok(())
     }
 
     pub fn request_unstake(ctx: Context<RequestUnstake>, restaked_amount: u64) -> Result<()> {
         let user_account = &mut ctx.accounts.user_restaking_account;
         let _mint_account = &ctx.accounts.mint_account;
+
+            require!(restaked_amount > 0, CustomError::InvalidAmount);
+            require!(user_account.restaked_amount >= restaked_amount, CustomError::InsufficientRestakeBalance);
+
 
         let cpi_ctx_burn = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -134,19 +147,26 @@ pub mod restaking_programs{
         token::burn(cpi_ctx_burn, restaked_amount)?;
 
         user_account.pending_unstake = restaked_amount;
-        user_account.cooldown_end_slot = Clock::get()?.slot + 500; // e.g. 500 slots (30 secs for demo)
+        user_account.cooldown_end_timestamp = Clock::get()?.unix_timestamp + 300; // 300= 5 mins
+
+          emit!(UnstakeRequestedEvent{
+                user: ctx.accounts.user.key(),
+                restaked_mint: ctx.accounts.mint_account.restaked_mint,
+                restaked_amount,
+                cooldown_end_timestamp: user_account.cooldown_end_timestamp ,
+            });
 
         Ok(())
     }
 
-  pub fn claim_unstake(ctx: Context<ClaimUnstake>) -> Result<()> {
+    pub fn claim_unstake(ctx: Context<ClaimUnstake>) -> Result<()> {
         let vault_account = &mut ctx.accounts.vault_account;
         let mint_account = &mut ctx.accounts.mint_account;
         let user_account = &mut ctx.accounts.user_restaking_account;
 
-        let current_slot = Clock::get()?.slot;
+        let current_timestamp = Clock::get()?.unix_timestamp;
         require!(
-            current_slot >= user_account.cooldown_end_slot,
+            current_timestamp >= user_account.cooldown_end_timestamp,
             CustomError::CooldownNotFinished
         );
 
@@ -191,6 +211,15 @@ pub mod restaking_programs{
         user_account.pending_unstake = 0;
         user_account.last_claimed_slot = Clock::get()?.slot;// added because it was missed 
 
+          emit!(UnstakeClaimedEvent{
+                user: ctx.accounts.user.key(),
+                base_mint: mint_account.base_mint,
+                base_amount,
+                fee,
+                withdraw_amount,
+            });
+
+
         Ok(())
     }
 
@@ -225,34 +254,19 @@ pub mod restaking_programs{
       
             user_account.last_claimed_slot = current_slot;
 
+             emit!(RewardsClaimedEvent{
+                user: ctx.accounts.user.key(),
+                rewards,
+                elapsed_slots,
+            });
+
             Ok(())
          }
-
-    pub fn get_cooldown_end_slot(ctx: Context<GetUserData>,) -> Result<u64> {
-                let user_account = &ctx.accounts.user_restaking_account;
-                Ok(user_account.cooldown_end_slot)
-        }
-
-    pub fn get_pending_unstake(ctx: Context<GetUserData>) -> Result<u64> {
-                let user_account = &ctx.accounts.user_restaking_account;
-                let value = user_account.pending_unstake;
-                Ok(value)
-        }
-
-    pub fn get_reward_debt(ctx: Context<GetUserData>,) -> Result<u64> {
-                let user_account = &ctx.accounts.user_restaking_account;
-                let value = user_account.reward_debt;
-                Ok(value)
-        }
-
-
-
     pub fn initialize_operator(ctx: Context<RegisterOperator>, bond_amount: u64, metadata: String) -> Result<()> {
             let operator_account = &mut ctx.accounts.operator_account;
             let vault = &mut ctx.accounts.vault;  // ← Get mutable reference to vault
 
             require!(bond_amount >= 2_000_000_000, CustomError::NotEnoughToken);
-
          
             operator_account.owner = ctx.accounts.operator_key.key();
             operator_account.bond_amount = bond_amount;
@@ -280,6 +294,14 @@ pub mod restaking_programs{
                 ],
             )?;
 
+            emit!(OperatorRegisteredEvent{
+                owner : operator_account.owner,
+                bond_amount,
+                metadata: operator_account.metadata.clone(),
+                active : true,
+                avs_count : operator_account.avs_count,
+            });
+
             Ok(())
         }
 
@@ -290,6 +312,11 @@ pub mod restaking_programs{
         require!(operator_account.owner== ctx.accounts.owner.key(), CustomError::Unauthorized);
 
         operator_account.metadata = metadata;
+
+        emit!(OperatorMetadataUpdatedEvent{
+                owner: operator_account.owner,
+                metadata: operator_account.metadata.clone(),
+            });
 
         Ok(())
     }
@@ -307,6 +334,12 @@ pub mod restaking_programs{
         
         let operator_account = &mut ctx.accounts.operator_account;
         operator_account.active = false;
+
+                emit!(OperatorDeRegisteredEvent{
+                        owner: operator_account.owner,
+                        bond_returned: bond_amount,
+                        active: false,
+                    });
         
         Ok(())
     }
@@ -326,6 +359,12 @@ pub mod restaking_programs{
 
             **ctx.accounts.vault.to_account_info().try_borrow_mut_lamports()? -= amount;
             **ctx.accounts.treasury.to_account_info().try_borrow_mut_lamports()? += amount;
+
+                emit!(OperatorSlashedEvent{
+                    operator_owner,
+                    slashed_amount: amount,
+                    remaining_bond: operator_account.bond_amount,
+                });
 
             Ok(())
         }
@@ -365,11 +404,18 @@ pub mod restaking_programs{
         **treasury.to_account_info().try_borrow_mut_lamports()? += treasury_share;
 
         avs_account.owner = ctx.accounts.avs_owner.key();
-        avs_account.metadata = metadata;
+        avs_account.metadata = metadata.clone();
         avs_account.registration_fee = registration_fee;
         avs_account.active = true;
         avs_account.registered_slot = Clock::get()?.slot;
         avs_account.bump = ctx.bumps.avs_account;
+
+            emit!(AvsRegisteredEvent{
+                    owner: avs_account.owner,
+                    registration_fee,
+                    metadata: avs_account.metadata.clone(),
+                    registered_slot: avs_account.registered_slot,
+                });
 
         Ok(())
     }
@@ -379,6 +425,11 @@ pub mod restaking_programs{
 
         require!(avs_account.owner == ctx.accounts.avs_owner.key(), CustomError::Unauthorized);
         avs_account.metadata = metadata;
+
+          emit!(AvsMetadatUpdatedEvent{
+                owner: avs_account.owner,
+                metadata: avs_account.metadata.clone() ,
+            });
         
         Ok(())
     }
@@ -389,6 +440,12 @@ pub mod restaking_programs{
             require!(avs_account.owner == ctx.accounts.avs_owner.key(), CustomError::Unauthorized);
 
             avs_account.active = false;
+
+                emit!(AvsDeRegisterEvent{
+                    owner: avs_account.owner,
+                    active : false,
+                });
+
             Ok(())
     }
 
@@ -424,6 +481,13 @@ pub mod restaking_programs{
                 .checked_add(1)
                 .unwrap();
 
+               emit!(OperatorOptedInEvent{
+                    operator: operator_avs_reg.operator,
+                    avs: avs_account.key(),
+                    avs_owner,
+                    opted_in_slot: operator_avs_reg.opted_in_slot,
+                });
+
             msg!(
                 "✅ Operator {} opted into AVS {} (owner: {})",
                 operator_avs_reg.operator,
@@ -433,6 +497,8 @@ pub mod restaking_programs{
 
             Ok(())
         }
+
+
 }
 
 #[derive(Accounts)]
@@ -893,7 +959,7 @@ pub struct UserRestakingAccount {
     pub deposited_amount: u64,
     pub restaked_amount: u64,
     pub bump: u8,
-    pub cooldown_end_slot: u64,
+    pub cooldown_end_timestamp: i64,
     pub pending_unstake: u64,
     pub reward_debt: u64,
     pub last_claimed_slot: u64,
@@ -958,12 +1024,99 @@ pub struct OperatorAvsRegistration {
     pub bump: u8,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct UserUnstakeInfo {
-    pub cooldown_end_slot: u64,
-    pub pending_unstake: u64,
-    pub reward_debt: u64,
+#[event]
+pub struct OperatorRegisteredEvent{
+    pub owner : Pubkey,
+    pub bond_amount: u64,
+    pub metadata : String,
+    pub active: bool,
+    pub avs_count: u32,
 }
+
+#[event]
+pub struct OperatorMetadataUpdatedEvent{
+    pub owner: Pubkey,
+    pub metadata: String,
+}
+
+#[event]
+pub struct OperatorDeRegisteredEvent{
+    pub owner: Pubkey,
+    pub bond_returned: u64,
+    pub active: bool
+}
+
+#[event]
+pub struct OperatorSlashedEvent{
+    pub operator_owner: Pubkey,
+    pub slashed_amount: u64,
+    pub remaining_bond: u64,
+}
+
+
+#[event]
+pub struct AvsRegisteredEvent{
+    pub owner: Pubkey,
+    pub registration_fee: u64,
+    pub metadata: String,
+    pub registered_slot: u64,
+}
+
+#[event]
+pub struct AvsMetadatUpdatedEvent{
+    pub owner: Pubkey,
+    pub metadata: String,
+}
+
+#[event]
+pub struct AvsDeRegisterEvent{
+    pub owner: Pubkey,
+    pub active : bool,
+} 
+
+#[event]
+pub struct OperatorOptedInEvent{
+    pub operator: Pubkey,
+    pub avs: Pubkey,
+    pub avs_owner: Pubkey,
+    pub opted_in_slot: u64,
+}
+
+#[event]
+pub struct RestakeEvent{
+    pub user: Pubkey,
+    pub base_mint: Pubkey,
+    pub restaked_mint: Pubkey,
+    pub amount_deposited: u64,
+    pub restaked_amount: u64,
+    pub exchange_rate: u64,
+}
+
+#[event]
+pub struct UnstakeRequestedEvent{
+    pub user: Pubkey,
+    pub restaked_mint: Pubkey,
+    pub restaked_amount: u64,
+    pub cooldown_end_timestamp: i64,
+}
+
+#[event]
+pub struct UnstakeClaimedEvent{
+    pub user: Pubkey,
+    pub base_mint: Pubkey,
+    pub base_amount: u64,
+    pub fee: u64,
+    pub withdraw_amount: u64,
+}
+
+#[event]
+pub struct RewardsClaimedEvent{
+    pub user: Pubkey,
+    pub rewards: u64,
+    pub elapsed_slots: u64,
+}
+
+
 
 
 #[error_code]
@@ -990,4 +1143,8 @@ pub enum CustomError {
     TaskNotCompleted,
     #[msg("Challenge already resolved")]
     ChallengeAlreadyResolved,
+    #[msg("Amount must be greater than 0")]
+    InvalidAmount,
+    #[msg("Insufficient restaked balance in account")]
+    InsufficientRestakeBalance,
 }
