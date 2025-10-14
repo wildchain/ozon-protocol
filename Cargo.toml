@@ -1,5 +1,5 @@
 [workspace]
-members = ["ozon-cli"]
+members = ["programs/*"]
 resolver = "2"
 
 # [workspace.dependencies]
