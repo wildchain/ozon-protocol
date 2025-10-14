@@ -1,9 +1,9 @@
 [package]
 name = "ozon-cli"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Bristin Borah  <bristinozon@gmail.com>"]
-description = "Ozon CLI for interacting with restaking program that helps user to manage and register operators and AVSs with the Ozon protocol."
+description = "Ozon CLI helps to manage and register operators and AVSs with the Ozon protocol."
 license = "Apache-2.0"
 repository = "https://github.com/wildchain/ozon_contract"
 homepage = "https://github.com/wildchain/ozon_contract"
