@@ -1,6 +1,6 @@
 [package]
 name = "ozon-cli"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Bristin Borah  <bristinozon@gmail.com>"]
 description = "Ozon CLI for interacting with restaking program that helps user to manage and register operators and AVSs with the Ozon protocol."
