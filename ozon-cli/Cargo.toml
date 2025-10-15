@@ -9,7 +9,7 @@ repository = "https://github.com/wildchain/ozon_contract"
 homepage = "https://github.com/wildchain/ozon_contract"
 readme = "README.md"
 keywords = ["solana", "ozon", "cli", "restaking", "programs"]
-categories = ["command-line-utilities", "blockchain", "crypto"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0"
