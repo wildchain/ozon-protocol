@@ -12,7 +12,7 @@ use clap::{Parser, Subcommand};
 use std::rc::Rc;
 
 #[derive(Parser, Debug)]
-#[command(name = "ozon-cli", about = "Ozon restaking CLI")]
+#[command(name = "ozon-cli", about = "Ozon restaking CLI", version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
