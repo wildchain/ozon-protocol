@@ -278,7 +278,7 @@ fn main() -> Result<()> {
         } => {
             if interactive {
                 println!("🌐 Launching Ozon Avs Selection dashboard");
-                open::that("https://ozon-operator-avs-registy.netlify.app/");
+                let _ = open::that("https://ozon-operator-avs-registy.netlify.app/");
                 return Ok(());
             }
             let (client, payer) = get_client(&cluster, wallet.as_deref())?;
