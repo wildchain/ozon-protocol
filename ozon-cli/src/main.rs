@@ -40,7 +40,7 @@ enum Commands {
 
     RegisterAvs {
         #[arg(long)]
-        name: String,
+        metadata: String,
         #[arg(long)]
         registration_fee: u64,
         #[arg(long, default_value = "devnet")]
@@ -51,7 +51,7 @@ enum Commands {
 
     UpdateAvsMetadata {
         #[arg(long)]
-        name: String,
+        metadata: String,
         #[arg(long, default_value = "devnet")]
         cluster: String,
         #[arg(long)]
@@ -176,7 +176,7 @@ fn main() -> Result<()> {
             println!("✅ Operator de-registered with tx {sig}");
         }
         Commands::RegisterAvs {
-            name,
+            metadata,
             registration_fee,
             cluster,
             wallet,
@@ -195,7 +195,7 @@ fn main() -> Result<()> {
             println!("  AVS account PDA: {}", avs_account);
             println!("  Treasury PDA: {}", treasury);
             println!("  Registration fee: {}", registration_fee);
-            println!("  Avs Name: {}", name);
+            println!("  Avs Name: {}", metadata);
 
             let sig = program
                 .request()
@@ -206,7 +206,7 @@ fn main() -> Result<()> {
                     system_program: system_program::ID,
                 })
                 .args(restaking_programs::instruction::RegisterAvs {
-                    metadata: name,
+                    metadata: metadata,
                     registration_fee,
                 })
                 .signer(&*payer)
@@ -215,7 +215,7 @@ fn main() -> Result<()> {
             println!("✅ Avs registered with tx {} ", sig);
         }
         Commands::UpdateAvsMetadata {
-            name,
+            metadata,
             cluster,
             wallet,
         } => {
@@ -230,7 +230,7 @@ fn main() -> Result<()> {
             println!("  Program ID: {}", program_id);
             println!("  AVS owner: {}", payer.pubkey());
             println!("  AVS account PDA: {}", avs_account);
-            println!("  New Avs Name: {}", name);
+            println!("  New Avs Name: {}", metadata);
 
             let sig = program
                 .request()
@@ -238,7 +238,7 @@ fn main() -> Result<()> {
                     avs_owner: payer.pubkey(),
                     avs_account,
                 })
-                .args(restaking_programs::instruction::UpdateAvsMetadata { metadata: name })
+                .args(restaking_programs::instruction::UpdateAvsMetadata { metadata: metadata })
                 .signer(&*payer)
                 .send()?;
 

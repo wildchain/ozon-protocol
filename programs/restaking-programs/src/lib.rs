@@ -3,7 +3,7 @@ use anchor_spl::token::{self, Burn, Mint, MintTo, Token, TokenAccount, Transfer}
 
 // This is your program's public key and it will update
 // automatically when you build the project.
-declare_id!("62y9ujieacL7yA9L6twLCvEoU3vVsZvvwjq7Z1E7TSPM");
+declare_id!("G9HUZQDnpJsFHST2KG56CkmcLWHrMrBB7XNRyZ9vR51a");
 
 #[program]
 pub mod restaking_programs{
