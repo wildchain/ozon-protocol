@@ -12,7 +12,7 @@ use clap::{Parser, Subcommand};
 use std::rc::Rc;
 
 #[derive(Parser, Debug)]
-#[command(name = "ozon-cli", about = "Ozon restaking CLI")]
+#[command(name = "ozon-cli", about = "Ozon restaking CLI", version)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -59,6 +59,24 @@ enum Commands {
     },
 
     DeRegisterAvs {
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
+
+    OptInAvs {
+        #[arg(long)]
+        avs_owner: String,
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+        #[arg(long, default_value_t = false)]
+        interactive: bool,
+    },
+
+    InitializeRewardTreasury {
         #[arg(long, default_value = "devnet")]
         cluster: String,
         #[arg(long)]
@@ -251,6 +269,90 @@ fn main() -> Result<()> {
                 .send()?;
 
             println!("✅ AVS de-registered with tx {}", sig);
+        }
+        Commands::OptInAvs {
+            avs_owner,
+            cluster,
+            wallet,
+            interactive,
+        } => {
+            if interactive {
+                println!("🌐 Launching Ozon Avs Selection dashboard");
+                let _ = open::that("https://ozon-operator-avs-registy.netlify.app/");
+                return Ok(());
+            }
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = restaking_programs::id();
+            let program = client.program(program_id).expect("Program id is invalid");
+
+            let avs_owner_pk: Pubkey = avs_owner
+                .parse()
+                .map_err(|_| anyhow::anyhow!("Invalid AVS owner pubkey"))?;
+
+            let (operator_account, _bump) =
+                Pubkey::find_program_address(&[b"operator", payer.pubkey().as_ref()], &program_id);
+
+            let (avs_account, _avs_bump) =
+                Pubkey::find_program_address(&[b"avs", avs_owner_pk.as_ref()], &program_id);
+
+            let (operator_avs_registration, _reg_bump) = Pubkey::find_program_address(
+                &[
+                    b"operator_avs",
+                    payer.pubkey().as_ref(),
+                    avs_owner_pk.as_ref(),
+                ],
+                &program_id,
+            );
+
+            println!("🔍 Debug info:");
+            println!("  Operator: {}", payer.pubkey());
+            println!("  AVS Owner: {}", avs_owner_pk);
+            println!("  AVS Account: {}", avs_account);
+            println!("  Registration PDA: {}", operator_avs_registration);
+
+            let sig = program
+                .request()
+                .accounts(restaking_programs::accounts::OptInAvs {
+                    operator_key: payer.pubkey(),
+                    operator_account,
+                    avs_account,
+                    operator_avs_registration,
+                    system_program: system_program::ID,
+                })
+                .args(restaking_programs::instruction::OperatorOptInAvs {
+                    avs_owner: avs_owner_pk,
+                })
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ Opted into AVS with tx {sig}");
+        }
+        Commands::InitializeRewardTreasury { cluster, wallet } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = restaking_programs::id();
+            let program = client.program(program_id).expect("program id valid");
+
+            // Derive treasury PDA
+            let (treasury, _bump) =
+                Pubkey::find_program_address(&[b"reward_treasury"], &program_id);
+
+            println!("🔍 Debug info:");
+            println!("  Program ID: {}", program_id);
+            println!("  Authority: {}", payer.pubkey());
+            println!("  Treasury PDA: {}", treasury);
+
+            let sig = program
+                .request()
+                .accounts(restaking_programs::accounts::InitializeRewardTreasury {
+                    authority: payer.pubkey(),
+                    treasury,
+                    system_program: system_program::ID,
+                })
+                .args(restaking_programs::instruction::InitializeRewardTreasury {})
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ Reward Treasury initialized with tx {}", sig);
         }
     }
 
