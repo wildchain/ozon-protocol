@@ -1,5 +1,5 @@
 [workspace]
-members = ["ozon-cli"]
+members = ["ozon-cli", "avs/ozon-oracle-sdk"]
 resolver = "2"
 
 # [workspace.dependencies]

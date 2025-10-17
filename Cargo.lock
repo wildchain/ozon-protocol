@@ -2849,6 +2849,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ozon-oracle-sdk"
+version = "0.1.0"
+dependencies = [
+ "anchor-client",
+ "anchor-lang",
+ "anyhow",
+ "avs-oracle",
+ "clap",
+ "dirs",
+ "hex",
+ "restaking-programs 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
