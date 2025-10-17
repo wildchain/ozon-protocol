@@ -1,3 +1,5 @@
+mod operator_runner;
+
 use anchor_client::{
     solana_sdk::{
         pubkey::Pubkey,
@@ -6,6 +8,8 @@ use anchor_client::{
     },
     Client, Cluster,
 };
+
+use operator_runner::OperatorRunner;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -83,6 +87,15 @@ enum Commands {
         #[arg(long)]
         wallet: Option<String>,
     },
+
+    RunOperator {
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+        #[arg(long, default_value = "10")]
+        poll_interval_seconds: u64,
+    },
 }
 
 fn get_client(
@@ -106,7 +119,8 @@ fn get_client(
     Ok((Client::new(cluster, payer.clone()), payer))
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -359,6 +373,16 @@ fn main() -> Result<()> {
                 .send()?;
 
             println!("✅ Reward Treasury initialized with tx {}", sig);
+        }
+        Commands::RunOperator {
+            cluster,
+            wallet,
+            poll_interval_seconds,
+        } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+
+            let runner = OperatorRunner::new(client, payer);
+            runner.run(poll_interval_seconds).await?;
         }
     }
 
