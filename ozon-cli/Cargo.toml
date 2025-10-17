@@ -1,6 +1,6 @@
 [package]
 name = "ozon-cli"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 authors = ["Bristin Borah  <bristinozon@gmail.com>"]
 description = "Ozon CLI helps to manage and register operators and AVSs with the Ozon protocol."
