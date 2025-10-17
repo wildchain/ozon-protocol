@@ -9,6 +9,7 @@ use anchor_client::{
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use open;
 use std::rc::Rc;
 
 #[derive(Parser, Debug)]
@@ -278,7 +279,7 @@ fn main() -> Result<()> {
         } => {
             if interactive {
                 println!("🌐 Launching Ozon Avs Selection dashboard");
-                let _ = open::that("https://ozon-operator-avs-registy.netlify.app/");
+                let _ = open::with("https://ozon-operator-avs-registy.netlify.app/", "chrome");
                 return Ok(());
             }
             let (client, payer) = get_client(&cluster, wallet.as_deref())?;
