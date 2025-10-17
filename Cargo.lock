@@ -619,7 +619,7 @@ dependencies = [
  "anchor-spl",
  "proc-macro2",
  "pyth-solana-receiver-sdk",
- "restaking-programs 0.1.3",
+ "restaking-programs",
  "zeroize",
 ]
 
@@ -2845,7 +2845,7 @@ dependencies = [
  "open",
  "pyth-sdk-solana",
  "reqwest 0.11.27",
- "restaking-programs 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "restaking-programs",
  "serde",
  "serde_json",
  "tokio",
@@ -2862,7 +2862,7 @@ dependencies = [
  "clap",
  "dirs",
  "hex",
- "restaking-programs 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "restaking-programs",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -3461,16 +3461,6 @@ dependencies = [
  "serde",
  "thiserror 1.0.69",
  "tower-service",
-]
-
-[[package]]
-name = "restaking-programs"
-version = "0.1.3"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "proc-macro2",
- "zeroize",
 ]
 
 [[package]]
