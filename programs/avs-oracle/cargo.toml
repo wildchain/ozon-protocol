@@ -5,7 +5,10 @@ description = "AVS Oracle task management and verification"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["Bristin Borah <bristinozon@gmail.com>"]
+keywords = ["solana", "restaking", "blockchain"]
 repository = "https://github.com/wildchain/ozon_contract"
+categories = ["command-line-utilities", "cryptography::cryptocurrencies"]
+
 
 [lib]
 crate-type = ["cdylib", "lib"]
