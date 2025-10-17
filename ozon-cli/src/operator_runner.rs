@@ -8,7 +8,6 @@ use std::time::Duration;
 use tokio::time;
 
 use anchor_lang::prelude::*;
-use anchor_lang::InstructionData;
 
 const AVS_ORACLE_PROGRAM_ID: &str = "6NLkSfQvmRgsbW8ywJLCbnnVh1nYTg5xfjSeM5E7YhcU";
 const RESTAKING_PROGRAM_ID: &str = "G9HUZQDnpJsFHST2KG56CkmcLWHrMrBB7XNRyZ9vR51a";
