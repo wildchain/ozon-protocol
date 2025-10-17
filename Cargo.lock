@@ -616,8 +616,11 @@ name = "avs-oracle"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "anchor-spl",
+ "proc-macro2",
  "pyth-solana-receiver-sdk",
  "restaking-programs 0.1.3",
+ "zeroize",
 ]
 
 [[package]]
