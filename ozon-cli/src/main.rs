@@ -279,7 +279,7 @@ fn main() -> Result<()> {
         } => {
             if interactive {
                 println!("🌐 Launching Ozon Avs Selection dashboard");
-                let _ = open::that("https://ozon-avs-dash.netlify.app/");
+                let _ = open::that("https://ozon-avs-dashboard.netlify.app/");
                 return Ok(());
             }
 
