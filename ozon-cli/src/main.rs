@@ -68,7 +68,7 @@ enum Commands {
 
     OptInAvs {
         #[arg(long)]
-        avs_owner: String,
+        avs_owner: Option<String>,
         #[arg(long, default_value = "devnet")]
         cluster: String,
         #[arg(long)]
@@ -279,9 +279,15 @@ fn main() -> Result<()> {
         } => {
             if interactive {
                 println!("🌐 Launching Ozon Avs Selection dashboard");
-                let _ = open::with("https://ozon-operator-avs-registy.netlify.app/", "chrome");
+                let _ = open::that("https://ozon-operator-avs-registy.netlify.app/");
                 return Ok(());
             }
+
+            // Require avs_owner when not in interactive mode
+            let avs_owner = avs_owner.ok_or_else(|| {
+                anyhow::anyhow!("--avs-owner is required when not using --interactive")
+            })?;
+
             let (client, payer) = get_client(&cluster, wallet.as_deref())?;
             let program_id = restaking_programs::id();
             let program = client.program(program_id).expect("Program id is invalid");
