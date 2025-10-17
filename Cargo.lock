@@ -614,6 +614,8 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 [[package]]
 name = "avs-oracle"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "919d06019d61f59d15345e04b7bceddbccf17a732368b0342fae96ef7f4aad57"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
