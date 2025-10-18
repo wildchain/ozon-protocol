@@ -1,5 +1,6 @@
 use anchor_client::{
     solana_sdk::{
+        instruction::AccountMeta,
         pubkey::Pubkey,
         signature::{read_keypair_file, Keypair, Signer},
         system_program,
@@ -10,13 +11,14 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::rc::Rc;
 
-const AVS_ORACLE_PROGRAM_ID: &str = "6NLkSfQvmRgsbW8ywJLCbnnVh1nYTg5xfjSeM5E7YhcU";
-const RESTAKING_PROGRAM_ID: &str = "G9HUZQDnpJsFHST2KG56CkmcLWHrMrBB7XNRyZ9vR51a";
+// ✅ IMPORTANT: Update this to match your deployed program ID
+const AVS_ORACLE_PROGRAM_ID: &str = "122iaw5CsWYKCpZFJg5DwjUtp8zyoeLFanreuwKHLzFV";
+const RESTAKING_PROGRAM_ID: &str = "E8SwyhYcBCWDJu6QM8Mcaguo8wP676wZ3yDzrrvm5yWP";
 
 #[derive(Parser, Debug)]
 #[command(
     name = "ozon-oracle-sdk",
-    about = " AVS Oracle Task Manager - Manage price oracle validation tasks",
+    about = "AVS Oracle Task Manager - Manage price oracle validation tasks",
     version,
     long_about = "CLI tool for AVS owners to create, manage, and verify oracle validation tasks"
 )]
@@ -94,6 +96,12 @@ enum Commands {
         #[arg(long, help = "Operator pubkey who submitted the result")]
         operator: String,
 
+        #[arg(long, help = "Pyth price update account (PriceUpdateV2)")]
+        price_update: String,
+
+        #[arg(long, default_value = "60", help = "Maximum price age in seconds")]
+        max_age: u64,
+
         #[arg(long, default_value = "devnet")]
         cluster: String,
 
@@ -134,13 +142,13 @@ fn get_client(
         "devnet" => Cluster::Devnet,
         "testnet" => Cluster::Testnet,
         "mainnet" | "mainnet-beta" => Cluster::Mainnet,
+        "localnet" | "localhost" => Cluster::Localnet,
         other => anyhow::bail!("Unsupported cluster: {other}"),
     };
 
     Ok((Client::new(cluster, payer.clone()), payer))
 }
 
-// Helper function to calculate discriminator
 fn get_discriminator(namespace: &str, name: &str) -> [u8; 8] {
     use sha2::{Digest, Sha256};
     let preimage = format!("{}:{}", namespace, name);
@@ -193,10 +201,19 @@ fn main() -> Result<()> {
         Commands::VerifySubmission {
             task_id,
             operator,
+            price_update,
+            max_age,
             cluster,
             wallet,
         } => {
-            verify_submission(task_id, &operator, &cluster, wallet.as_deref())?;
+            verify_submission(
+                task_id,
+                &operator,
+                &price_update,
+                max_age,
+                &cluster,
+                wallet.as_deref(),
+            )?;
         }
 
         Commands::CloseTask {
@@ -241,7 +258,7 @@ fn create_task(
     );
 
     println!("📋 Creating Oracle Validation Task");
-
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("  AVS Owner:    {}", payer.pubkey());
     println!("  Task ID:      {}", task_id);
     println!("  Task Account: {}", task_account);
@@ -254,28 +271,14 @@ fn create_task(
     );
     println!();
 
-    use anchor_lang::prelude::*;
-
-    // Build instruction
     let discriminator = get_discriminator("global", "create_task");
 
-    #[derive(AnchorSerialize)]
-    struct CreateTaskArgs {
-        task_id: u64,
-        pyth_price_feed_id: [u8; 32],
-        submission_deadline_slots: u64,
-        verification_threshold_bps: u64,
-    }
-
-    let args = CreateTaskArgs {
-        task_id,
-        pyth_price_feed_id: feed_id,
-        submission_deadline_slots: deadline_slots,
-        verification_threshold_bps: threshold_bps,
-    };
-
+    // Manual serialization - no borsh needed
     let mut data = discriminator.to_vec();
-    data.extend_from_slice(&args.try_to_vec()?);
+    data.extend_from_slice(&task_id.to_le_bytes());
+    data.extend_from_slice(&feed_id);
+    data.extend_from_slice(&deadline_slots.to_le_bytes());
+    data.extend_from_slice(&threshold_bps.to_le_bytes());
 
     let accounts = vec![
         AccountMeta::new(payer.pubkey(), true),
@@ -283,7 +286,7 @@ fn create_task(
         AccountMeta::new_readonly(system_program::ID, false),
     ];
 
-    let ix = anchor_lang::solana_program::instruction::Instruction {
+    let ix = anchor_client::solana_sdk::instruction::Instruction {
         program_id,
         accounts,
         data,
@@ -293,12 +296,19 @@ fn create_task(
     let sig = program.request().instruction(ix).signer(&*payer).send()?;
 
     println!("\n✅ Task Created Successfully!");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!(
         "   Transaction: https://explorer.solana.com/tx/{}?cluster={}",
         sig, cluster
     );
-    println!("\n💡 Operators can now submit results for this task using:");
-    println!("   ozon-cli run-operator\n");
+    println!("\n💡 Next Steps:");
+    println!("   1. Operators can now submit results for this task");
+    println!(
+        "   2. Monitor submissions: ozon-oracle-sdk get-submissions --task-id {}",
+        task_id
+    );
+    println!("   3. Verify submissions: ozon-oracle-sdk verify-submission --task-id {} --operator <PUBKEY> --price-update <PYTH_ACCOUNT>", task_id);
+    println!();
 
     Ok(())
 }
@@ -306,10 +316,10 @@ fn create_task(
 fn list_tasks(cluster: &str, wallet: Option<&str>, active_only: bool) -> Result<()> {
     let (client, payer) = get_client(cluster, wallet)?;
     let program_id: Pubkey = AVS_ORACLE_PROGRAM_ID.parse()?;
-    let restaking_program_id: Pubkey = RESTAKING_PROGRAM_ID.parse()?;
     let program = client.program(program_id)?;
 
     println!("📋 Your Oracle Validation Tasks");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("  AVS Owner: {}\n", payer.pubkey());
 
     let accounts = program.rpc().get_program_accounts(&program_id)?;
@@ -322,13 +332,12 @@ fn list_tasks(cluster: &str, wallet: Option<&str>, active_only: bool) -> Result<
             continue;
         }
 
+        // Parse TaskAccount structure
         let avs_bytes = &account.data[8..40];
         let avs = Pubkey::try_from(avs_bytes)?;
 
-        let (expected_avs, _) =
-            Pubkey::find_program_address(&[b"avs", payer.pubkey().as_ref()], &restaking_program_id);
-
-        if avs != expected_avs {
+        // Only show tasks owned by this AVS
+        if avs != payer.pubkey() {
             continue;
         }
 
@@ -351,11 +360,10 @@ fn list_tasks(cluster: &str, wallet: Option<&str>, active_only: bool) -> Result<
 
         let status = if active { "🟢 Active" } else { "🔴 Closed" };
 
-        println!("....");
         println!("  Task #{}", task_id);
         println!("  ├─ Account:      {}", pubkey);
         println!("  ├─ Status:       {}", status);
-        println!("  ├─ Pyth Feed:    0x{}", hex::encode(&pyth_feed[..8]));
+        println!("  ├─ Pyth Feed:    0x{}", hex::encode(&pyth_feed));
         println!(
             "  ├─ Threshold:    {}bps ({}%)",
             threshold,
@@ -363,16 +371,17 @@ fn list_tasks(cluster: &str, wallet: Option<&str>, active_only: bool) -> Result<
         );
         println!("  ├─ Deadline:     Slot {}", deadline);
         println!("  └─ Submissions:  {}", total_submissions);
+        println!();
     }
 
     if task_count == 0 {
         println!("  No tasks found.");
-        println!("\n  Create your first task with:");
-        println!("  avs-oracle create-task --task-id 1 --pyth-feed-id <FEED_ID>");
+        println!("\n💡 Create your first task with:");
+        println!("     ozon-oracle-sdk create-task --task-id 1 --pyth-feed-id <FEED_ID>");
     } else {
-        println!("....");
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!(
-            "\n  📊 Summary: {} total task(s), {} active\n",
+            "  📊 Summary: {} total task(s), {} active\n",
             task_count, active_count
         );
     }
@@ -385,7 +394,6 @@ fn get_submissions(task_id: u64, cluster: &str, wallet: Option<&str>) -> Result<
     let program_id: Pubkey = AVS_ORACLE_PROGRAM_ID.parse()?;
     let program = client.program(program_id)?;
 
-    // Get task account
     let (task_account, _) = Pubkey::find_program_address(
         &[
             b"task",
@@ -396,13 +404,14 @@ fn get_submissions(task_id: u64, cluster: &str, wallet: Option<&str>) -> Result<
     );
 
     println!("📥 Task Submissions for Task #{}", task_id);
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     let accounts = program.rpc().get_program_accounts(&program_id)?;
 
     let mut submission_count = 0;
 
     for (pubkey, account) in accounts {
-        if account.data.len() < 100 {
+        if account.data.len() < 115 {
             continue;
         }
 
@@ -423,7 +432,6 @@ fn get_submissions(task_id: u64, cluster: &str, wallet: Option<&str>) -> Result<
         let verified = account.data[104] == 1;
         let is_correct = account.data[105] == 1;
 
-        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!("  Submission #{}", submission_count);
         println!("  ├─ Account:      {}", pubkey);
         println!("  ├─ Operator:     {}", operator);
@@ -448,15 +456,15 @@ fn get_submissions(task_id: u64, cluster: &str, wallet: Option<&str>) -> Result<
                 }
             );
         }
+        println!();
     }
 
     if submission_count == 0 {
         println!("  No submissions yet for this task.");
-        println!("\n  Operators will automatically submit when they run:");
-        println!("  ozon-cli run-operator");
+        println!("\n💡 Operators will automatically submit when they detect new tasks");
     } else {
-        println!("...");
-        println!("\n  📊 Total: {} submission(s)\n", submission_count);
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!("  📊 Total: {} submission(s)\n", submission_count);
     }
 
     Ok(())
@@ -465,12 +473,17 @@ fn get_submissions(task_id: u64, cluster: &str, wallet: Option<&str>) -> Result<
 fn verify_submission(
     task_id: u64,
     operator: &str,
+    price_update_str: &str,
+    max_age: u64,
     cluster: &str,
     wallet: Option<&str>,
 ) -> Result<()> {
     let (client, payer) = get_client(cluster, wallet)?;
     let program_id: Pubkey = AVS_ORACLE_PROGRAM_ID.parse()?;
+    let restaking_program_id: Pubkey = RESTAKING_PROGRAM_ID.parse()?;
+    let program = client.program(program_id)?;
     let operator_pk: Pubkey = operator.parse()?;
+    let price_update: Pubkey = price_update_str.parse()?;
 
     let (task_account, _) = Pubkey::find_program_address(
         &[
@@ -486,63 +499,60 @@ fn verify_submission(
         &program_id,
     );
 
-    println!(" ✓ Verifying Submission");
+    let (operator_account, _) =
+        Pubkey::find_program_address(&[b"operator", operator_pk.as_ref()], &restaking_program_id);
 
-    println!("  Task ID:    {}", task_id);
-    println!("  Operator:   {}", operator_pk);
-    println!("  Submission: {}\n", submission_account);
+    let operator_account_data = program.rpc().get_account_data(&operator_account)?;
+    let vault_bump = operator_account_data[41]; // Assuming vault_bump is at offset 41
 
-    println!("⚠️  HACKATHON NOTE:");
-    println!("   Full verification requires Pyth PriceUpdateV2 on-chain account.");
-    println!("   For demo purposes, showing submission data:\n");
+    let (operator_vault, _) =
+        Pubkey::find_program_address(&[b"vault", operator_pk.as_ref()], &restaking_program_id);
 
-    // Fetch and display submission data
-    let program = client.program(program_id)?;
-    match program.rpc().get_account_data(&submission_account) {
-        Ok(data) => {
-            if data.len() >= 106 {
-                let submitted_price = i64::from_le_bytes(data[72..80].try_into()?);
-                let confidence = u64::from_le_bytes(data[80..88].try_into()?);
-                let verified = data[104] == 1;
-                let is_correct = data[105] == 1;
+    let (treasury, _) = Pubkey::find_program_address(&[b"reward_treasury"], &restaking_program_id);
 
-                println!(
-                    "  Submitted Price:  {} (${:.2})",
-                    submitted_price,
-                    submitted_price as f64 / 1e8
-                );
-                println!("  Confidence:       {}", confidence);
-                println!(
-                    "  Verified:         {}",
-                    if verified { "✅" } else { "⏳ Pending" }
-                );
-                if verified {
-                    println!(
-                        "  Result:           {}",
-                        if is_correct {
-                            "✅ Correct"
-                        } else {
-                            "❌ Wrong (Slashed)"
-                        }
-                    );
-                }
+    println!("✓ Verifying Submission");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("  Task ID:       {}", task_id);
+    println!("  Operator:      {}", operator_pk);
+    println!("  Submission:    {}", submission_account);
+    println!("  Price Update:  {}", price_update);
+    println!("  Max Age:       {} seconds\n", max_age);
 
-                if !verified {
-                    println!("\n💡 To implement full verification:");
-                    println!("   1. Fetch Pyth PriceUpdateV2 account");
-                    println!("   2. Call verify_and_slash_if_wrong instruction");
-                    println!("   3. Operator will be slashed if price is wrong");
-                }
-            } else {
-                println!("  ❌ Invalid submission data format");
-            }
-        }
-        Err(_) => {
-            println!("  ❌ Submission not found");
-        }
-    }
+    let discriminator = get_discriminator("global", "verify_and_slash_if_wrong");
 
-    println!();
+    // Manual serialization - no borsh needed
+    let mut data = discriminator.to_vec();
+    data.extend_from_slice(operator_pk.as_ref());
+    data.extend_from_slice(&max_age.to_le_bytes());
+
+    let accounts = vec![
+        AccountMeta::new(payer.pubkey(), true),
+        AccountMeta::new_readonly(task_account, false),
+        AccountMeta::new(submission_account, false),
+        AccountMeta::new_readonly(price_update, false),
+        AccountMeta::new_readonly(restaking_program_id, false),
+        AccountMeta::new(operator_account, false),
+        AccountMeta::new(operator_vault, false),
+        AccountMeta::new(treasury, false),
+        AccountMeta::new_readonly(system_program::ID, false),
+    ];
+
+    let ix = anchor_client::solana_sdk::instruction::Instruction {
+        program_id,
+        accounts,
+        data,
+    };
+
+    println!("⏳ Verifying and checking if slashing required...");
+    let sig = program.request().instruction(ix).signer(&*payer).send()?;
+
+    println!("\n✅ Verification Complete!");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!(
+        "   Transaction: https://explorer.solana.com/tx/{}?cluster={}\n",
+        sig, cluster
+    );
+
     Ok(())
 }
 
@@ -561,17 +571,17 @@ fn close_task(task_id: u64, cluster: &str, wallet: Option<&str>) -> Result<()> {
     );
 
     println!("🔒 Closing Task #{}", task_id);
-
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("  Task Account: {}\n", task_account);
 
     let discriminator = get_discriminator("global", "close_task");
 
     let accounts = vec![
-        anchor_lang::prelude::AccountMeta::new(payer.pubkey(), true),
-        anchor_lang::prelude::AccountMeta::new(task_account, false),
+        AccountMeta::new(payer.pubkey(), true),
+        AccountMeta::new(task_account, false),
     ];
 
-    let ix = anchor_lang::solana_program::instruction::Instruction {
+    let ix = anchor_client::solana_sdk::instruction::Instruction {
         program_id,
         accounts,
         data: discriminator.to_vec(),
@@ -581,6 +591,7 @@ fn close_task(task_id: u64, cluster: &str, wallet: Option<&str>) -> Result<()> {
     let sig = program.request().instruction(ix).signer(&*payer).send()?;
 
     println!("\n✅ Task Closed Successfully!");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!(
         "   Transaction: https://explorer.solana.com/tx/{}?cluster={}\n",
         sig, cluster
