@@ -1,3 +1,5 @@
+mod operator_runner;
+
 use anchor_client::{
     solana_sdk::{
         pubkey::Pubkey,
@@ -7,8 +9,11 @@ use anchor_client::{
     Client, Cluster,
 };
 
+use operator_runner::OperatorRunner;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use open;
 use std::rc::Rc;
 
 #[derive(Parser, Debug)]
@@ -40,7 +45,7 @@ enum Commands {
 
     RegisterAvs {
         #[arg(long)]
-        name: String,
+        metadata: String,
         #[arg(long)]
         registration_fee: u64,
         #[arg(long, default_value = "devnet")]
@@ -51,7 +56,7 @@ enum Commands {
 
     UpdateAvsMetadata {
         #[arg(long)]
-        name: String,
+        metadata: String,
         #[arg(long, default_value = "devnet")]
         cluster: String,
         #[arg(long)]
@@ -67,7 +72,7 @@ enum Commands {
 
     OptInAvs {
         #[arg(long)]
-        avs_owner: String,
+        avs_owner: Option<String>,
         #[arg(long, default_value = "devnet")]
         cluster: String,
         #[arg(long)]
@@ -81,6 +86,15 @@ enum Commands {
         cluster: String,
         #[arg(long)]
         wallet: Option<String>,
+    },
+
+    RunOperator {
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+        #[arg(long, default_value = "10")]
+        poll_interval_seconds: u64,
     },
 }
 
@@ -105,7 +119,8 @@ fn get_client(
     Ok((Client::new(cluster, payer.clone()), payer))
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -176,7 +191,7 @@ fn main() -> Result<()> {
             println!("✅ Operator de-registered with tx {sig}");
         }
         Commands::RegisterAvs {
-            name,
+            metadata,
             registration_fee,
             cluster,
             wallet,
@@ -195,7 +210,7 @@ fn main() -> Result<()> {
             println!("  AVS account PDA: {}", avs_account);
             println!("  Treasury PDA: {}", treasury);
             println!("  Registration fee: {}", registration_fee);
-            println!("  Avs Name: {}", name);
+            println!("  Avs Name: {}", metadata);
 
             let sig = program
                 .request()
@@ -206,7 +221,7 @@ fn main() -> Result<()> {
                     system_program: system_program::ID,
                 })
                 .args(restaking_programs::instruction::RegisterAvs {
-                    metadata: name,
+                    metadata: metadata,
                     registration_fee,
                 })
                 .signer(&*payer)
@@ -215,7 +230,7 @@ fn main() -> Result<()> {
             println!("✅ Avs registered with tx {} ", sig);
         }
         Commands::UpdateAvsMetadata {
-            name,
+            metadata,
             cluster,
             wallet,
         } => {
@@ -230,7 +245,7 @@ fn main() -> Result<()> {
             println!("  Program ID: {}", program_id);
             println!("  AVS owner: {}", payer.pubkey());
             println!("  AVS account PDA: {}", avs_account);
-            println!("  New Avs Name: {}", name);
+            println!("  New Avs Name: {}", metadata);
 
             let sig = program
                 .request()
@@ -238,7 +253,7 @@ fn main() -> Result<()> {
                     avs_owner: payer.pubkey(),
                     avs_account,
                 })
-                .args(restaking_programs::instruction::UpdateAvsMetadata { metadata: name })
+                .args(restaking_programs::instruction::UpdateAvsMetadata { metadata: metadata })
                 .signer(&*payer)
                 .send()?;
 
@@ -278,9 +293,14 @@ fn main() -> Result<()> {
         } => {
             if interactive {
                 println!("🌐 Launching Ozon Avs Selection dashboard");
-                let _ = open::that("https://ozon-operator-avs-registy.netlify.app/");
+                let _ = open::that("https://ozon-avs-dashboard.netlify.app/");
                 return Ok(());
             }
+
+            let avs_owner = avs_owner.ok_or_else(|| {
+                anyhow::anyhow!("--avs-owner is required when not using --interactive")
+            })?;
+
             let (client, payer) = get_client(&cluster, wallet.as_deref())?;
             let program_id = restaking_programs::id();
             let program = client.program(program_id).expect("Program id is invalid");
@@ -353,6 +373,16 @@ fn main() -> Result<()> {
                 .send()?;
 
             println!("✅ Reward Treasury initialized with tx {}", sig);
+        }
+        Commands::RunOperator {
+            cluster,
+            wallet,
+            poll_interval_seconds,
+        } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+
+            let runner = OperatorRunner::new(client, payer);
+            runner.run(poll_interval_seconds).await?;
         }
     }
 
