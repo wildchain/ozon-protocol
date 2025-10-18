@@ -7,8 +7,8 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-avs_oracle = "6NLkSfQvmRgsbW8ywJLCbnnVh1nYTg5xfjSeM5E7YhcU"
-restaking_programs = "G9HUZQDnpJsFHST2KG56CkmcLWHrMrBB7XNRyZ9vR51a"
+avs_oracle = "122iaw5CsWYKCpZFJg5DwjUtp8zyoeLFanreuwKHLzFV"
+restaking_programs = "E8SwyhYcBCWDJu6QM8Mcaguo8wP676wZ3yDzrrvm5yWP"
 
 [registry]
 url = "https://api.apr.dev"
