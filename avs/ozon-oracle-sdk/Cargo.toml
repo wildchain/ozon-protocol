@@ -1,6 +1,6 @@
 [package]
 name = "ozon-oracle-sdk"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/wildchain/ozon_contract"
@@ -16,7 +16,7 @@ name = "avs-oracle"
 path = "src/main.rs"
 
 [dependencies]
-avs-oracle = "0.1.0"
+avs-oracle = "0.1.1"
 anchor-client = "0.31.1"
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 anyhow = "1.0"

@@ -613,21 +613,19 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "avs-oracle"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "919d06019d61f59d15345e04b7bceddbccf17a732368b0342fae96ef7f4aad57"
+version = "0.1.1"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
- "proc-macro2",
- "pyth-solana-receiver-sdk",
+ "pyth-sdk-solana",
  "restaking-programs",
- "zeroize",
 ]
 
 [[package]]
 name = "avs-oracle"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea621eada86c3f56cc7a1f3094b950993f069a9927f8cd3234c0f97b28413f0b"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -1510,15 +1508,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fast-math"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2465292146cdfc2011350fe3b1c616ac83cf0faeedb33463ba1c332ed8948d66"
-dependencies = [
- "ieee754",
-]
-
-[[package]]
 name = "fastbloom"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2195,12 +2184,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ieee754"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9007da9cacbd3e6343da136e98b0d2df013f553d35bdec8b518f07bea768e19c"
-
-[[package]]
 name = "indexmap"
 version = "2.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2864,12 +2847,12 @@ dependencies = [
 
 [[package]]
 name = "ozon-oracle-sdk"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anchor-client",
  "anchor-lang",
  "anyhow",
- "avs-oracle 0.1.0",
+ "avs-oracle 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap",
  "dirs",
  "hex",
@@ -3067,38 +3050,6 @@ dependencies = [
  "num-traits",
  "pyth-sdk",
  "serde",
- "solana-program",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "pyth-solana-receiver-sdk"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66596ab94606146630358bbf8b7187ac7353b766ab92028ecec7478a79a6059d"
-dependencies = [
- "anchor-lang",
- "hex",
- "pythnet-sdk",
-]
-
-[[package]]
-name = "pythnet-sdk"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "498d20fd330277697aaee92f341bdabdb4695b10e05f054157a18ad8b7746a17"
-dependencies = [
- "anchor-lang",
- "bincode",
- "borsh 0.10.4",
- "bytemuck",
- "byteorder",
- "fast-math",
- "hex",
- "rustc_version",
- "serde",
- "sha3",
- "slow_primes",
  "solana-program",
  "thiserror 1.0.69",
 ]
@@ -3969,15 +3920,6 @@ name = "slab"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
-
-[[package]]
-name = "slow_primes"
-version = "0.1.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58267dd2fbaa6dceecba9e3e106d2d90a2b02497c0e8b01b8759beccf5113938"
-dependencies = [
- "num",
-]
 
 [[package]]
 name = "smallvec"
