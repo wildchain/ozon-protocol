@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use pyth_sdk_solana::{load_price_feed_from_account_info, PriceFeed};
+use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 use restaking_programs::cpi::accounts::SlashOperator;
 use restaking_programs::program::RestakingPrograms;
 use restaking_programs::{OperatorAccount, OperatorVault, RewardTreasury};
@@ -115,31 +115,25 @@ pub mod avs_oracle {
 
         require!(!submission.verified, ErrorCode::AlreadyVerified);
 
-        // Load Pyth price feed from account info (as per official docs)
-        let price_account_info = &ctx.accounts.price_update;
-        let price_feed: PriceFeed = load_price_feed_from_account_info(price_account_info)
-            .map_err(|_| ErrorCode::InvalidPythPrice)?;
+        // ✅ Load verified price from Pyth Solana Receiver
+        let price_update = &ctx.accounts.price_update;
+        let expected_feed_id = get_feed_id_from_hex(
+            "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d", // SOL/USD example
+        )?;
+        let price_data =
+            price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &expected_feed_id)?;
 
-        // Get current timestamp
-        let current_timestamp = Clock::get()?.unix_timestamp;
-
-        // Get current price (no older than maximum_age seconds)
-        let current_price = price_feed
-            .get_price_no_older_than(current_timestamp, maximum_age)
-            .ok_or(ErrorCode::InvalidPythPrice)?;
-
-        let pyth_price = current_price.price;
-        let pyth_conf = current_price.conf;
+        let pyth_price = price_data.price;
+        let pyth_conf = price_data.conf;
         let submitted_price = submission.submitted_price;
 
         msg!(
-            "Pyth Price: ({} +- {}) x 10^{}",
-            current_price.price,
-            current_price.conf,
-            current_price.expo
+            "✅ Pyth verified price: {} ±{} exp={}",
+            pyth_price,
+            pyth_conf,
+            price_data.exponent
         );
 
-        // Calculate difference and threshold
         let diff = (pyth_price - submitted_price).abs();
         let threshold = (pyth_price.abs() as u64)
             .checked_mul(task.verification_threshold_bps)
@@ -157,9 +151,7 @@ pub mod avs_oracle {
         task.verified_submissions = task.verified_submissions.checked_add(1).unwrap();
 
         if !is_correct {
-            msg!("❌ Operator wrong! Slashing via CPI...");
-            msg!("   Difference: {} (threshold: {})", diff, threshold);
-
+            msg!("❌ Operator wrong! Initiating slashing...");
             let operator_account = &ctx.accounts.operator_account;
             let slash_amount = operator_account.bond_amount / 10;
 
@@ -173,15 +165,10 @@ pub mod avs_oracle {
             };
 
             let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-
             restaking_programs::cpi::slash_operator(cpi_ctx, operator_owner, slash_amount)?;
-
-            msg!(
-                "⚡ Operator slashed {} lamports and rewards channeled to impact treasury",
-                slash_amount
-            );
+            msg!("⚡ Slashed {} lamports from operator vault", slash_amount);
         } else {
-            msg!("✅ Operator correct! Price within threshold.");
+            msg!("✅ Operator correct! Price within allowed threshold.");
         }
 
         emit!(SubmissionVerifiedEvent {
@@ -293,9 +280,7 @@ pub struct VerifyAndSlashIfWrong<'info> {
     )]
     pub task_submission: Account<'info, TaskSubmission>,
 
-    // Use AccountInfo instead of typed Account
-    /// CHECK: Pyth price account - validated by pyth-sdk-solana::load_price_feed_from_account_info
-    pub price_update: AccountInfo<'info>,
+    pub price_update: Account<'info, PriceUpdateV2>,
 
     pub restaking_program: Program<'info, RestakingPrograms>,
 
