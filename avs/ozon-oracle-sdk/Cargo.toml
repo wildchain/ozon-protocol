@@ -2,6 +2,14 @@
 name = "ozon-oracle-sdk"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/wildchain/ozon_contract"
+homepage = "https://github.com/wildchain/ozon_contract"
+readme = "README.md"
+keywords = ["solana", "avs", "ozon oracle avs", "ozon sdk", "programs"]
+categories = ["command-line-utilities"]
+authors = ["Bristin Borah  <bristinozon@gmail.com>"]
+description = "Ozon oracle sdk to interact with the Ozon AVS oracle program on Solana."
 
 [[bin]]
 name = "avs-oracle"
