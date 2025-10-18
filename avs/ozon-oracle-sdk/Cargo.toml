@@ -16,7 +16,7 @@ name = "avs-oracle"
 path = "src/main.rs"
 
 [dependencies]
-avs-oracle = "0.1.1"
+avs-oracle = "0.1.2"
 anchor-client = "0.31.1"
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 anyhow = "1.0"
