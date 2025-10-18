@@ -1,6 +1,6 @@
 [package]
 name = "ozon-cli"
-version = "0.1.12"
+version = "0.1.13"
 edition = "2021"
 authors = ["Bristin Borah  <bristinozon@gmail.com>"]
 description = "Ozon CLI helps to manage and register operators and AVSs with the Ozon protocol."
@@ -24,7 +24,8 @@ open = "5.3.2"
 tokio = { version = "1.35", features = ["full"] }
 pyth-sdk-solana = "0.10"
 reqwest = { version = "0.11", features = ["json"] }
-avs-oracle = "0.1.0"
+sha2 = "0.10"
+
 
 [[bin]]
 name = "ozon-cli"

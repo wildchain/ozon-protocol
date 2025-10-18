@@ -7,8 +7,6 @@ use std::rc::Rc;
 use std::time::Duration;
 use tokio::time;
 
-use anchor_lang::prelude::*;
-
 const AVS_ORACLE_PROGRAM_ID: &str = "6NLkSfQvmRgsbW8ywJLCbnnVh1nYTg5xfjSeM5E7YhcU";
 const RESTAKING_PROGRAM_ID: &str = "G9HUZQDnpJsFHST2KG56CkmcLWHrMrBB7XNRyZ9vR51a";
 
@@ -84,7 +82,6 @@ impl OperatorRunner {
 
     async fn get_opted_in_avs(&self) -> Result<Vec<Pubkey>> {
         let restaking_program = self.client.program(self.restaking_program_id)?;
-
         let avs_accounts = self.get_all_avs_accounts().await?;
 
         let mut opted_avs = Vec::new();
@@ -131,7 +128,6 @@ impl OperatorRunner {
 
     async fn process_avs_tasks(&self, avs_owner: &Pubkey) -> Result<u32> {
         let oracle_program = self.client.program(self.avs_oracle_program_id)?;
-
         let accounts = oracle_program
             .rpc()
             .get_program_accounts(&self.avs_oracle_program_id)?;
@@ -232,6 +228,16 @@ impl OperatorRunner {
             &self.avs_oracle_program_id,
         );
 
+        use anchor_lang::prelude::*;
+
+        // discriminator for submit_task_result
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(b"global:submit_task_result");
+        let result = hasher.finalize();
+        let mut discriminator = [0u8; 8];
+        discriminator.copy_from_slice(&result[..8]);
+
         #[derive(AnchorSerialize)]
         struct SubmitTaskResultArgs {
             submitted_price: i64,
@@ -245,22 +251,17 @@ impl OperatorRunner {
             publish_time,
         };
 
-        let discriminator = {
-            use anchor_lang::Discriminator;
-            avs_oracle::instruction::SubmitTaskResult::DISCRIMINATOR
-        };
-
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&args.try_to_vec()?);
 
         let accounts = vec![
-            anchor_lang::prelude::AccountMeta::new(self.operator.pubkey(), true),
-            anchor_lang::prelude::AccountMeta::new(*task_pubkey, false),
-            anchor_lang::prelude::AccountMeta::new(task_submission, false),
-            anchor_lang::prelude::AccountMeta::new_readonly(operator_account, false),
-            anchor_lang::prelude::AccountMeta::new_readonly(operator_avs_registration, false),
-            anchor_lang::prelude::AccountMeta::new_readonly(restaking_program_id, false),
-            anchor_lang::prelude::AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new(self.operator.pubkey(), true),
+            AccountMeta::new(*task_pubkey, false),
+            AccountMeta::new(task_submission, false),
+            AccountMeta::new_readonly(operator_account, false),
+            AccountMeta::new_readonly(operator_avs_registration, false),
+            AccountMeta::new_readonly(restaking_program_id, false),
+            AccountMeta::new_readonly(system_program::ID, false),
         ];
 
         let ix = anchor_lang::solana_program::instruction::Instruction {
