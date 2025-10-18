@@ -617,7 +617,7 @@ version = "0.1.2"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
- "pyth-solana-receiver-sdk",
+ "pyth-solana-receiver-sdk 0.3.1",
  "restaking-programs",
 ]
 
@@ -629,7 +629,7 @@ checksum = "b24573de107d321af8838c0c123186316d56da93b6e7d8dc4b011cd49fba5d60"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
- "pyth-solana-receiver-sdk",
+ "pyth-solana-receiver-sdk 1.0.1",
  "restaking-programs",
 ]
 
@@ -3019,6 +3019,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "pyth-solana-receiver-sdk"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b7854c4176470c8d86de301dc5b57ac84227dabb9527328b585fc332962d60b"
+dependencies = [
+ "anchor-lang",
+ "hex",
+ "pythnet-sdk",
+ "solana-program",
 ]
 
 [[package]]
