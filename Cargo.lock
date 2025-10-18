@@ -614,16 +614,6 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 [[package]]
 name = "avs-oracle"
 version = "0.1.4"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "pyth-solana-receiver-sdk",
- "restaking-programs",
-]
-
-[[package]]
-name = "avs-oracle"
-version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "414fc90333883e37387d34e9fa935d22edbe1a3e1faa8ca3eb82344e869f9622"
 dependencies = [
@@ -631,6 +621,16 @@ dependencies = [
  "anchor-spl",
  "pyth-solana-receiver-sdk",
  "pythnet-sdk",
+ "restaking-programs",
+]
+
+[[package]]
+name = "avs-oracle"
+version = "0.1.5"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "pyth-solana-receiver-sdk",
  "restaking-programs",
 ]
 
@@ -2993,7 +2993,7 @@ dependencies = [
  "anchor-client",
  "anchor-lang",
  "anyhow",
- "avs-oracle 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "avs-oracle 0.1.4",
  "clap",
  "dirs",
  "hex",
