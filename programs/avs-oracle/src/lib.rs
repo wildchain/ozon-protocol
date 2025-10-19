@@ -4,7 +4,7 @@ use restaking_programs::cpi::accounts::SlashOperator;
 use restaking_programs::program::RestakingPrograms;
 use restaking_programs::{OperatorAccount, OperatorVault, RewardTreasury};
 
-declare_id!("122iaw5CsWYKCpZFJg5DwjUtp8zyoeLFanreuwKHLzFV");
+declare_id!("CZ7rZR4r4G5DZZmLyPzzehrNY9SwvX9xQzFW8ffFQoak");
 
 #[program]
 pub mod avs_oracle {
