@@ -12,8 +12,8 @@ use clap::{Parser, Subcommand};
 use std::rc::Rc;
 
 // ✅ IMPORTANT: Update this to match your deployed program ID
-const AVS_ORACLE_PROGRAM_ID: &str = "122iaw5CsWYKCpZFJg5DwjUtp8zyoeLFanreuwKHLzFV";
-const RESTAKING_PROGRAM_ID: &str = "E8SwyhYcBCWDJu6QM8Mcaguo8wP676wZ3yDzrrvm5yWP";
+const AVS_ORACLE_PROGRAM_ID: &str = "CZ7rZR4r4G5DZZmLyPzzehrNY9SwvX9xQzFW8ffFQoak";
+const RESTAKING_PROGRAM_ID: &str = "BYKBfEurByPLjKP5Xn4mjjwX6khhybhLTGgFFPH7pAcW";
 
 #[derive(Parser, Debug)]
 #[command(
