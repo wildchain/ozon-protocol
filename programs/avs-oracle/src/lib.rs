@@ -6,6 +6,9 @@ use restaking_programs::{OperatorAccount, OperatorVault, RewardTreasury};
 
 declare_id!("CZ7rZR4r4G5DZZmLyPzzehrNY9SwvX9xQzFW8ffFQoak");
 
+pub const MAXIMUM_AGE: u64 = 60;
+pub const FEED_ID: &str = "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d";
+
 #[program]
 pub mod avs_oracle {
     use super::*;
@@ -108,7 +111,6 @@ pub mod avs_oracle {
     pub fn verify_and_slash_if_wrong(
         ctx: Context<VerifyAndSlashIfWrong>,
         operator_owner: Pubkey,
-        maximum_age: u64,
     ) -> Result<()> {
         let task = &mut ctx.accounts.task_account;
         let submission = &mut ctx.accounts.task_submission;
@@ -116,12 +118,12 @@ pub mod avs_oracle {
         require!(!submission.verified, ErrorCode::AlreadyVerified);
 
         // ✅ Load verified price from Pyth Solana Receiver
-        let price_update = &ctx.accounts.price_update;
-        let expected_feed_id = get_feed_id_from_hex(
-            "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d", // SOL/USD example
+        let price_update = &mut ctx.accounts.price_update;
+        let price_data = price_update.get_price_no_older_than(
+            &Clock::get()?,
+            MAXIMUM_AGE,
+            &get_feed_id_from_hex(FEED_ID)?,
         )?;
-        let price_data =
-            price_update.get_price_no_older_than(&Clock::get()?, maximum_age, &expected_feed_id)?;
 
         let pyth_price = price_data.price;
         let pyth_conf = price_data.conf;
