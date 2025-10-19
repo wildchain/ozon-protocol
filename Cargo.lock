@@ -613,7 +613,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "avs-oracle"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -623,9 +623,9 @@ dependencies = [
 
 [[package]]
 name = "avs-oracle"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "175c9b6508cdc63645d03fefc05d137b899f47b0cb9a8ebd7b03471bff36d914"
+checksum = "15eb9ef13a90f2b1116a3b29dcd15dc70b48c09e23266f148c2c2b787a527a83"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -2987,12 +2987,12 @@ dependencies = [
 
 [[package]]
 name = "ozon-oracle-sdk"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anchor-client",
  "anchor-lang",
  "anyhow",
- "avs-oracle 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "avs-oracle 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap",
  "dirs",
  "hex",
