@@ -96,6 +96,60 @@ enum Commands {
         #[arg(long, default_value = "10")]
         poll_interval_seconds: u64,
     },
+
+    CreateTask {
+        #[arg(long)]
+        task_id: u64,
+        #[arg(long)]
+        pyth_feed_id: String, // 32-byte hex string
+        #[arg(long)]
+        submission_deadline_slots: u64,
+        #[arg(long)]
+        verification_threshold_bps: u64,
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
+
+    SubmitTaskResult {
+        #[arg(long)]
+        task_pubkey: String,
+        #[arg(long)]
+        submitted_price: i64,
+        #[arg(long)]
+        confidence: u64,
+        #[arg(long)]
+        publish_time: i64,
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
+
+    VerifyTask {
+        #[arg(long)]
+        task_pubkey: String,
+        #[arg(long)]
+        operator_owner: String,
+        #[arg(long)]
+        maximum_age: u64,
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
+
+    CloseTask {
+        #[arg(long)]
+        task_pubkey: String,
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        #[arg(long)]
+        wallet: Option<String>,
+    },
+
+
 }
 
 fn get_client(
@@ -384,6 +438,180 @@ async fn main() -> Result<()> {
             let runner = OperatorRunner::new(client, payer);
             runner.run(poll_interval_seconds).await?;
         }
+
+        Commands::CreateTask {
+            task_id,
+            pyth_feed_id,
+            submission_deadline_slots,
+            verification_threshold_bps,
+            cluster,
+            wallet,
+        } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = avs_oracle::id();
+            let program = client.program(program_id)?;
+
+            let pyth_feed_bytes = hex::decode(pyth_feed_id.trim_start_matches("0x"))?;
+            let mut feed_array = [0u8; 32];
+            feed_array.copy_from_slice(&pyth_feed_bytes[..32]);
+
+            let (task_account, _bump) = Pubkey::find_program_address(
+                &[b"task", payer.pubkey().as_ref(), &task_id.to_le_bytes()],
+                &program_id,
+            );
+
+            println!("🔧 Creating task {}", task_id);
+
+            let sig = program
+                .request()
+                .accounts(avs_oracle::accounts::CreateTask {
+                    avs_owner: payer.pubkey(),
+                    task_account,
+                    system_program: system_program::ID,
+                })
+                .args(avs_oracle::instruction::CreateTask {
+                    task_id,
+                    pyth_price_feed_id: feed_array,
+                    submission_deadline_slots,
+                    verification_threshold_bps,
+                })
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ Task created! Tx: {}", sig);
+        }
+
+        Commands::SubmitTaskResult {
+            task_pubkey,
+            submitted_price,
+            confidence,
+            publish_time,
+            cluster,
+            wallet,
+        } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = avs_oracle::id();
+            let program = client.program(program_id)?;
+            let restaking_program_id = restaking_programs::id();
+
+            let task_pubkey = task_pubkey.parse::<Pubkey>()?;
+
+            let (task_submission, _) = Pubkey::find_program_address(
+                &[b"submission", task_pubkey.as_ref(), payer.pubkey().as_ref()],
+                &program_id,
+            );
+
+            let (operator_account, _) = Pubkey::find_program_address(
+                &[b"operator", payer.pubkey().as_ref()],
+                &restaking_program_id,
+            );
+
+            let (operator_avs_registration, _) = Pubkey::find_program_address(
+                &[b"operator_avs", payer.pubkey().as_ref(), payer.pubkey().as_ref()],
+                &restaking_program_id,
+            );
+
+            let sig = program
+                .request()
+                .accounts(avs_oracle::accounts::SubmitTaskResult {
+                    operator: payer.pubkey(),
+                    task_account: task_pubkey,
+                    task_submission,
+                    operator_account,
+                    operator_avs_registration,
+                    restaking_program: restaking_program_id,
+                    system_program: system_program::ID,
+                })
+                .args(avs_oracle::instruction::SubmitTaskResult {
+                    submitted_price,
+                    confidence,
+                    publish_time,
+                })
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ Submitted task result with tx {}", sig);
+        }
+
+        Commands::VerifyTask {
+            task_pubkey,
+            operator_owner,
+            maximum_age,
+            cluster,
+            wallet,
+        } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = avs_oracle::id();
+            let program = client.program(program_id)?;
+            let restaking_program_id = restaking_programs::id();
+
+            let task_pubkey = task_pubkey.parse::<Pubkey>()?;
+            let operator_owner = operator_owner.parse::<Pubkey>()?;
+
+            let (task_submission, _) = Pubkey::find_program_address(
+                &[b"submission", task_pubkey.as_ref(), operator_owner.as_ref()],
+                &program_id,
+            );
+
+            let (operator_account, _) = Pubkey::find_program_address(
+                &[b"operator", operator_owner.as_ref()],
+                &restaking_program_id,
+            );
+
+            let (operator_vault, _) = Pubkey::find_program_address(
+                &[b"vault", operator_owner.as_ref()],
+                &restaking_program_id,
+            );
+
+            let (treasury, _) =
+                Pubkey::find_program_address(&[b"reward_treasury"], &restaking_program_id);
+
+            let sig = program
+                .request()
+                .accounts(avs_oracle::accounts::VerifyAndSlashIfWrong {
+                    avs_authority: payer.pubkey(),
+                    task_account: task_pubkey,
+                    task_submission,
+                    price_update: Pubkey::default(), // You’ll plug in a real PriceUpdateV2 account here
+                    restaking_program: restaking_program_id,
+                    operator_account,
+                    operator_vault,
+                    treasury,
+                    system_program: system_program::ID,
+                })
+                .args(avs_oracle::instruction::VerifyAndSlashIfWrong {
+                    operator_owner,
+                    maximum_age,
+                })
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ Verification completed! Tx: {}", sig);
+        }
+
+        Commands::CloseTask {
+            task_pubkey,
+            cluster,
+            wallet,
+        } => {
+            let (client, payer) = get_client(&cluster, wallet.as_deref())?;
+            let program_id = avs_oracle::id();
+            let program = client.program(program_id)?;
+            let task_pubkey = task_pubkey.parse::<Pubkey>()?;
+
+            let sig = program
+                .request()
+                .accounts(avs_oracle::accounts::CloseTask {
+                    avs_owner: payer.pubkey(),
+                    task_account: task_pubkey,
+                })
+                .args(avs_oracle::instruction::CloseTask {})
+                .signer(&*payer)
+                .send()?;
+
+            println!("✅ Task closed with tx {}", sig);
+        }
+
     }
 
     Ok(())

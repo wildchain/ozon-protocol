@@ -9,8 +9,8 @@ use tokio::time;
 
 use anchor_lang::prelude::*;
 
-const AVS_ORACLE_PROGRAM_ID: &str = "6NLkSfQvmRgsbW8ywJLCbnnVh1nYTg5xfjSeM5E7YhcU";
-const RESTAKING_PROGRAM_ID: &str = "G9HUZQDnpJsFHST2KG56CkmcLWHrMrBB7XNRyZ9vR51a";
+const AVS_ORACLE_PROGRAM_ID: &str = "9gxV85Rjm4x2q3NnDoSQmYFf1BrCGYRbfNwN117NGcJX";
+const RESTAKING_PROGRAM_ID: &str = "EUtbEyzu3uv34ZJ7poZ8f4tEJsfQ5o31zb2HYkCsXiL5";
 
 pub struct OperatorRunner {
     client: Client<Rc<Keypair>>,
