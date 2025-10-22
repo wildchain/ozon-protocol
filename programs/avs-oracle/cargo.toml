@@ -1,6 +1,6 @@
 [package]
 name = "avs-oracle"
-version = "0.1.8"
+version = "0.1.9"
 description = "AVS Oracle task management and verification"
 edition = "2021"
 license = "Apache-2.0"
