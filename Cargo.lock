@@ -618,7 +618,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "proc-macro2",
- "restaking-programs",
+ "restaking-programs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "solana-program",
  "zeroize",
 ]
@@ -2810,7 +2810,7 @@ dependencies = [
  "hex",
  "open",
  "reqwest 0.11.27",
- "restaking-programs",
+ "restaking-programs 0.1.4",
  "serde",
  "serde_json",
  "tokio",
@@ -3351,6 +3351,19 @@ dependencies = [
 [[package]]
 name = "restaking-programs"
 version = "0.1.4"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "proc-macro2",
+ "solana-program",
+ "zeroize",
+]
+
+[[package]]
+name = "restaking-programs"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8dcfb28e0758e8cf7c2f6929354168a39f6d64790c61f9e12562e5f7b1e886fe"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
