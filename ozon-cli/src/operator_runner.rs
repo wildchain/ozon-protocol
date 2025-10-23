@@ -3,15 +3,15 @@ use anchor_client::{
     Client,
 };
 use anyhow::Result;
-use std::rc::Rc;
 use std::collections::HashSet;
+use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 
 use anchor_lang::prelude::*;
 use avs_oracle::TaskAccount;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::convert::TryInto;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const AVS_ORACLE_PROGRAM_ID: &str = "CmusrUV5ChdfHdTFqHuCHQW8hzqjoawd5YbDQ7km7BS7";
 const RESTAKING_PROGRAM_ID: &str = "2Wvo8b4oF63csMU45z6qHCN9EZ1qV2ifBb3dwnWow6Ub";
@@ -187,8 +187,16 @@ impl OperatorRunner {
                 Err(e) => {
                     let err_str = format!("{}", e);
                     if err_str.contains("TaskExpired") || err_str.contains("0x1770") {
-                        println!("   ⏭️  Task {} expired; ignoring future attempts for {}", task_id, task_pubkey);
-                        // Remember to ignore this task in future iterations
+                        println!(
+                            "   ⏭️  Task {} expired; ignoring future attempts for {}",
+                            task_id, task_pubkey
+                        );
+                        self.ignored_expired_tasks.insert(task_pubkey);
+                    } else if err_str.contains("TaskNotActive") {
+                        println!(
+                            "   ⏭️  Task {} closed; ignoring future attempts for {}",
+                            task_id, task_pubkey
+                        );
                         self.ignored_expired_tasks.insert(task_pubkey);
                     } else {
                         eprintln!("   ❌ Failed to submit task {}: {}", task_id, err_str);
@@ -200,12 +208,7 @@ impl OperatorRunner {
         Ok(processed)
     }
 
-    fn submit_task(
-        &self,
-        task_pubkey: &Pubkey,
-        _task_id: u64,
-        avs_owner: &Pubkey,
-    ) -> Result<()> {
+    fn submit_task(&self, task_pubkey: &Pubkey, _task_id: u64, avs_owner: &Pubkey) -> Result<()> {
         let (price, confidence, publish_time) = self.fetch_demo_price()?;
 
         println!("      💰 Price: {}, Confidence: {}", price, confidence);
@@ -227,13 +230,10 @@ impl OperatorRunner {
             &restaking_program_id,
         );
 
-        // Debug: print operator account PDA and owner on chain
         if let Ok(op_acc) = oracle_program.rpc().get_account(&operator_account) {
             println!(
                 "      🔎 Operator PDA: {} | Owner on-chain: {} | Expected owner (restaking): {}",
-                operator_account,
-                op_acc.owner,
-                restaking_program_id
+                operator_account, op_acc.owner, restaking_program_id
             );
         } else {
             println!(
@@ -273,9 +273,6 @@ impl OperatorRunner {
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&args.try_to_vec()?);
 
-        // Accounts must match SubmitTaskResult<'info> ordering:
-        // operator (signer), task_account (mut), task_submission (init, mut),
-        // operator_account, operator_avs_registration, restaking_program, system_program
         let accounts = vec![
             anchor_lang::prelude::AccountMeta::new_readonly(self.operator.pubkey(), true),
             anchor_lang::prelude::AccountMeta::new(*task_pubkey, false),
@@ -304,13 +301,13 @@ impl OperatorRunner {
     }
 
     fn fetch_demo_price(&self) -> Result<(i64, u64, i64)> {
-        // Simple demo fetch from Binance BTCUSDT ticker
-        // You can change the symbol or source as needed
         let url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
         let resp: serde_json::Value = reqwest::blocking::get(url)?.json()?;
-        let price_str = resp["price"].as_str().ok_or_else(|| anyhow::anyhow!("bad price"))?;
+        let price_str = resp["price"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("bad price"))?;
         let price_f: f64 = price_str.parse()?;
-        let price_i64: i64 = (price_f * 1e8).round() as i64; // 8-decimal fixed-point
+        let price_i64: i64 = (price_f * 1e8).round() as i64;
         let conf: u64 = 0;
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
         Ok((price_i64, conf, now))

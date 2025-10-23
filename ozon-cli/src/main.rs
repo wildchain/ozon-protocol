@@ -349,7 +349,7 @@ fn main() -> Result<()> {
         } => {
             if interactive {
                 println!("🌐 Launching Ozon Avs Selection dashboard");
-                let _ = open::that("https://ozon-avs-dashboard.netlify.app/");
+                let _ = open::that("https://dashboard-avs.netlify.app/");
                 return Ok(());
             }
 
@@ -502,7 +502,11 @@ fn main() -> Result<()> {
             );
 
             let (operator_avs_registration, _) = Pubkey::find_program_address(
-                &[b"operator_avs", payer.pubkey().as_ref(), payer.pubkey().as_ref()],
+                &[
+                    b"operator_avs",
+                    payer.pubkey().as_ref(),
+                    payer.pubkey().as_ref(),
+                ],
                 &restaking_program_id,
             );
 
@@ -617,7 +621,6 @@ fn main() -> Result<()> {
             );
             println!("Task PDA: {}", task_account);
         }
-
     }
 
     Ok(())
