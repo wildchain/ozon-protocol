@@ -624,6 +624,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "avs-oracle"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bce34d839447f72e487810f5b8aa3c34df6736d9a16914446c7c7ab8c597cbc4"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "proc-macro2",
+ "restaking-programs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "solana-program",
+ "zeroize",
+]
+
+[[package]]
 name = "base64"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2799,18 +2813,18 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "ozon-cli"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "anchor-client",
  "anchor-lang",
  "anyhow",
- "avs-oracle",
+ "avs-oracle 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap",
  "dirs",
  "hex",
  "open",
  "reqwest 0.11.27",
- "restaking-programs 0.1.4",
+ "restaking-programs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "tokio",

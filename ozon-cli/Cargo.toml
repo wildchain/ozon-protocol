@@ -1,6 +1,6 @@
 [package]
 name = "ozon-cli"
-version = "0.1.20"
+version = "0.1.21"
 edition = "2021"
 authors = ["Bristin Borah  <bristinozon@gmail.com>"]
 description = "Ozon CLI helps to manage and register operators and AVSs with the Ozon protocol."
@@ -18,12 +18,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anchor-client = "0.31.1"
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
-restaking-programs = { path = "../programs/restaking-programs" }
+restaking-programs = { version = "0.1.4" }
 dirs = "5"
 open = "5.3.2"
 tokio = { version = "1.35", features = ["full"] }
 reqwest = { version = "0.11", features = ["json", "blocking"] }
-avs-oracle = { path = "../programs/avs-oracle" }
+avs-oracle = { version = "0.1.10" }
 hex = "0.4"
 
 [[bin]]
