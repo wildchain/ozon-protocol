@@ -1,10 +1,9 @@
 use anchor_lang::prelude::*;
-use pyth_solana_receiver_sdk::price_update::PriceUpdateV2;
 use restaking_programs::cpi::accounts::SlashOperator;
 use restaking_programs::program::RestakingPrograms;
 use restaking_programs::{OperatorAccount, OperatorVault, RewardTreasury};
 
-declare_id!("CMXfkWyGUDVPArD9PCCpDGuhc1R8yVvXcRzWJbeSot2a");
+declare_id!("CmusrUV5ChdfHdTFqHuCHQW8hzqjoawd5YbDQ7km7BS7");
 
 #[program]
 pub mod avs_oracle {
@@ -13,7 +12,6 @@ pub mod avs_oracle {
     pub fn create_task(
         ctx: Context<CreateTask>,
         task_id: u64,
-        pyth_price_feed_id: [u8; 32],
         submission_deadline_slots: u64,
         verification_threshold_bps: u64,
     ) -> Result<()> {
@@ -22,7 +20,6 @@ pub mod avs_oracle {
 
         task.avs = ctx.accounts.avs_owner.key();
         task.task_id = task_id;
-        task.pyth_feed_id = pyth_price_feed_id;
         task.submission_deadline = current_slot + submission_deadline_slots;
         task.verification_threshold_bps = verification_threshold_bps;
         task.created_slot = current_slot;
@@ -34,7 +31,6 @@ pub mod avs_oracle {
         emit!(TaskCreatedEvent {
             task_id,
             avs: task.avs,
-            pyth_feed_id: task.pyth_feed_id,
             deadline: task.submission_deadline,
             threshold_bps: verification_threshold_bps,
         });
@@ -108,25 +104,19 @@ pub mod avs_oracle {
     pub fn verify_and_slash_if_wrong(
         ctx: Context<VerifyAndSlashIfWrong>,
         operator_owner: Pubkey,
-        maximum_age: u64,
+        actual_price: i64,
     ) -> Result<()> {
         let task = &mut ctx.accounts.task_account;
         let submission = &mut ctx.accounts.task_submission;
 
         require!(!submission.verified, ErrorCode::AlreadyVerified);
-
-        let price_update = &ctx.accounts.price_update;
-        let clock = Clock::get()?;
-
-        let price_data =
-            price_update.get_price_no_older_than(&clock, maximum_age, &task.pyth_feed_id)?;
-
-        let pyth_price = price_data.price;
-        let pyth_conf = price_data.conf;
+        
+        let sb_price = actual_price;
+        let sb_conf = 0u64;
         let submitted_price = submission.submitted_price;
 
-        let diff = (pyth_price - submitted_price).abs();
-        let threshold = (pyth_price.abs() as u64)
+        let diff = (sb_price - submitted_price).abs();
+        let threshold = (sb_price.abs() as u64)
             .checked_mul(task.verification_threshold_bps)
             .unwrap()
             .checked_div(10000)
@@ -136,8 +126,8 @@ pub mod avs_oracle {
 
         submission.verified = true;
         submission.is_correct = is_correct;
-        submission.actual_pyth_price = pyth_price;
-        submission.actual_pyth_conf = pyth_conf;
+        submission.actual_pyth_price = sb_price;
+        submission.actual_pyth_conf = sb_conf;
 
         task.verified_submissions = task.verified_submissions.checked_add(1).unwrap();
 
@@ -173,7 +163,7 @@ pub mod avs_oracle {
             operator: submission.operator,
             is_correct,
             submitted_price,
-            actual_price: pyth_price,
+            actual_price: sb_price,
             difference: diff,
         });
 
@@ -277,8 +267,6 @@ pub struct VerifyAndSlashIfWrong<'info> {
     )]
     pub task_submission: Account<'info, TaskSubmission>,
 
-    pub price_update: Account<'info, PriceUpdateV2>,
-
     pub restaking_program: Program<'info, RestakingPrograms>,
 
     #[account(
@@ -325,7 +313,6 @@ pub struct CloseTask<'info> {
 pub struct TaskAccount {
     pub avs: Pubkey,
     pub task_id: u64,
-    pub pyth_feed_id: [u8; 32],
     pub submission_deadline: u64,
     pub verification_threshold_bps: u64,
     pub created_slot: u64,
@@ -355,7 +342,6 @@ pub struct TaskSubmission {
 pub struct TaskCreatedEvent {
     pub task_id: u64,
     pub avs: Pubkey,
-    pub pyth_feed_id: [u8; 32],
     pub deadline: u64,
     pub threshold_bps: u64,
 }

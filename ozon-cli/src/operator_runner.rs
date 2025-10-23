@@ -4,19 +4,24 @@ use anchor_client::{
 };
 use anyhow::Result;
 use std::rc::Rc;
+use std::collections::HashSet;
+use std::thread;
 use std::time::Duration;
-use tokio::time;
 
 use anchor_lang::prelude::*;
+use avs_oracle::TaskAccount;
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::convert::TryInto;
 
-const AVS_ORACLE_PROGRAM_ID: &str = "9gxV85Rjm4x2q3NnDoSQmYFf1BrCGYRbfNwN117NGcJX";
-const RESTAKING_PROGRAM_ID: &str = "EUtbEyzu3uv34ZJ7poZ8f4tEJsfQ5o31zb2HYkCsXiL5";
+const AVS_ORACLE_PROGRAM_ID: &str = "CmusrUV5ChdfHdTFqHuCHQW8hzqjoawd5YbDQ7km7BS7";
+const RESTAKING_PROGRAM_ID: &str = "2Wvo8b4oF63csMU45z6qHCN9EZ1qV2ifBb3dwnWow6Ub";
 
 pub struct OperatorRunner {
     client: Client<Rc<Keypair>>,
     operator: Rc<Keypair>,
     avs_oracle_program_id: Pubkey,
     restaking_program_id: Pubkey,
+    ignored_expired_tasks: HashSet<Pubkey>,
 }
 
 impl OperatorRunner {
@@ -26,38 +31,28 @@ impl OperatorRunner {
             operator,
             avs_oracle_program_id: AVS_ORACLE_PROGRAM_ID.parse().unwrap(),
             restaking_program_id: RESTAKING_PROGRAM_ID.parse().unwrap(),
+            ignored_expired_tasks: HashSet::new(),
         }
     }
 
-    pub async fn run(&self, poll_interval_seconds: u64) -> Result<()> {
+    pub fn run(&mut self, poll_interval_seconds: u64) -> Result<()> {
         println!("🚀 Starting Ozon Operator Node");
         println!("   Operator: {}", self.operator.pubkey());
         println!("   Poll Interval: {}s", poll_interval_seconds);
-        println!("   Press Ctrl+C to stop\n");
-
-        let mut interval = time::interval(Duration::from_secs(poll_interval_seconds));
+        println!("   Press Ctrl+C to stop (Ctrl+C to quit)\n");
 
         loop {
-            tokio::select! {
-                _ = tokio::signal::ctrl_c() => {
-                    println!("\n🛑 Shutting down operator node...");
-                    break;
-                }
-                _ = interval.tick() => {
-                    if let Err(e) = self.process_tasks().await {
-                        eprintln!("❌ Error processing tasks: {}", e);
-                    }
-                }
+            if let Err(e) = self.process_tasks() {
+                eprintln!("❌ Error processing tasks: {}", e);
             }
+            thread::sleep(Duration::from_secs(poll_interval_seconds));
         }
-
-        Ok(())
     }
 
-    async fn process_tasks(&self) -> Result<()> {
+    fn process_tasks(&mut self) -> Result<()> {
         println!("🔍 Checking for active tasks...");
 
-        let opted_avs = self.get_opted_in_avs().await?;
+        let opted_avs = self.get_opted_in_avs()?;
 
         if opted_avs.is_empty() {
             println!("   ℹ️  No AVS services opted in. Use 'opt-in-avs' command first.");
@@ -67,7 +62,7 @@ impl OperatorRunner {
         println!("   ✓ Opted into {} AVS service(s)", opted_avs.len());
 
         for avs_owner in opted_avs {
-            match self.process_avs_tasks(&avs_owner).await {
+            match self.process_avs_tasks(&avs_owner) {
                 Ok(count) => {
                     if count > 0 {
                         println!("   ✓ Processed {} task(s) for AVS {}", count, avs_owner);
@@ -82,10 +77,10 @@ impl OperatorRunner {
         Ok(())
     }
 
-    async fn get_opted_in_avs(&self) -> Result<Vec<Pubkey>> {
+    fn get_opted_in_avs(&self) -> Result<Vec<Pubkey>> {
         let restaking_program = self.client.program(self.restaking_program_id)?;
 
-        let avs_accounts = self.get_all_avs_accounts().await?;
+        let avs_accounts = self.get_all_avs_accounts()?;
 
         let mut opted_avs = Vec::new();
 
@@ -109,7 +104,7 @@ impl OperatorRunner {
         Ok(opted_avs)
     }
 
-    async fn get_all_avs_accounts(&self) -> Result<Vec<Pubkey>> {
+    fn get_all_avs_accounts(&self) -> Result<Vec<Pubkey>> {
         let restaking_program = self.client.program(self.restaking_program_id)?;
         let accounts = restaking_program
             .rpc()
@@ -129,7 +124,7 @@ impl OperatorRunner {
         Ok(avs_owners)
     }
 
-    async fn process_avs_tasks(&self, avs_owner: &Pubkey) -> Result<u32> {
+    fn process_avs_tasks(&mut self, avs_owner: &Pubkey) -> Result<u32> {
         let oracle_program = self.client.program(self.avs_oracle_program_id)?;
 
         let accounts = oracle_program
@@ -138,20 +133,28 @@ impl OperatorRunner {
 
         let mut processed = 0;
 
+        // Anchor discriminator for TaskAccount
+        let task_disc = TaskAccount::DISCRIMINATOR;
+
         for (task_pubkey, account) in accounts {
-            if account.data.len() < 100 {
+            // Skip tasks we've already marked as expired
+            if self.ignored_expired_tasks.contains(&task_pubkey) {
+                continue;
+            }
+            // Ensure it's a TaskAccount by discriminator
+            if account.data.len() < 8 {
+                continue;
+            }
+            let disc: [u8; 8] = account.data[0..8].try_into()?;
+            if disc != task_disc {
                 continue;
             }
 
             let task_avs_bytes = &account.data[8..40];
             let task_avs = Pubkey::try_from(task_avs_bytes)?;
 
-            let (avs_account_pda, _) = Pubkey::find_program_address(
-                &[b"avs", avs_owner.as_ref()],
-                &self.restaking_program_id,
-            );
-
-            if task_avs != avs_account_pda {
+            // Task stores the AVS OWNER pubkey, not the AVS PDA
+            if task_avs != *avs_owner {
                 continue;
             }
 
@@ -173,21 +176,23 @@ impl OperatorRunner {
             }
 
             let task_id = u64::from_le_bytes(account.data[40..48].try_into()?);
-            let mut pyth_feed_id = [0u8; 32];
-            pyth_feed_id.copy_from_slice(&account.data[48..80]);
 
             println!("   📋 Found task {} for AVS {}", task_id, avs_owner);
 
-            match self
-                .submit_task(&task_pubkey, task_id, &pyth_feed_id, avs_owner)
-                .await
-            {
+            match self.submit_task(&task_pubkey, task_id, avs_owner) {
                 Ok(_) => {
                     println!("   ✅ Submitted result for task {}", task_id);
                     processed += 1;
                 }
                 Err(e) => {
-                    eprintln!("   ❌ Failed to submit task {}: {}", task_id, e);
+                    let err_str = format!("{}", e);
+                    if err_str.contains("TaskExpired") || err_str.contains("0x1770") {
+                        println!("   ⏭️  Task {} expired; ignoring future attempts for {}", task_id, task_pubkey);
+                        // Remember to ignore this task in future iterations
+                        self.ignored_expired_tasks.insert(task_pubkey);
+                    } else {
+                        eprintln!("   ❌ Failed to submit task {}: {}", task_id, err_str);
+                    }
                 }
             }
         }
@@ -195,14 +200,13 @@ impl OperatorRunner {
         Ok(processed)
     }
 
-    async fn submit_task(
+    fn submit_task(
         &self,
         task_pubkey: &Pubkey,
         _task_id: u64,
-        pyth_feed_id: &[u8; 32],
         avs_owner: &Pubkey,
     ) -> Result<()> {
-        let (price, confidence, publish_time) = self.fetch_pyth_price(pyth_feed_id).await?;
+        let (price, confidence, publish_time) = self.fetch_demo_price()?;
 
         println!("      💰 Price: {}, Confidence: {}", price, confidence);
 
@@ -223,7 +227,23 @@ impl OperatorRunner {
             &restaking_program_id,
         );
 
-        let (task_submission, _) = Pubkey::find_program_address(
+        // Debug: print operator account PDA and owner on chain
+        if let Ok(op_acc) = oracle_program.rpc().get_account(&operator_account) {
+            println!(
+                "      🔎 Operator PDA: {} | Owner on-chain: {} | Expected owner (restaking): {}",
+                operator_account,
+                op_acc.owner,
+                restaking_program_id
+            );
+        } else {
+            println!(
+                "      🔎 Operator PDA: {} | Owner on-chain: <missing> | Expected owner (restaking): {}",
+                operator_account,
+                restaking_program_id
+            );
+        }
+
+        let (submission_pda, _) = Pubkey::find_program_address(
             &[
                 b"submission",
                 task_pubkey.as_ref(),
@@ -253,14 +273,17 @@ impl OperatorRunner {
         let mut data = discriminator.to_vec();
         data.extend_from_slice(&args.try_to_vec()?);
 
+        // Accounts must match SubmitTaskResult<'info> ordering:
+        // operator (signer), task_account (mut), task_submission (init, mut),
+        // operator_account, operator_avs_registration, restaking_program, system_program
         let accounts = vec![
-            anchor_lang::prelude::AccountMeta::new(self.operator.pubkey(), true),
+            anchor_lang::prelude::AccountMeta::new_readonly(self.operator.pubkey(), true),
             anchor_lang::prelude::AccountMeta::new(*task_pubkey, false),
-            anchor_lang::prelude::AccountMeta::new(task_submission, false),
-            anchor_lang::prelude::AccountMeta::new_readonly(operator_account, false),
-            anchor_lang::prelude::AccountMeta::new_readonly(operator_avs_registration, false),
-            anchor_lang::prelude::AccountMeta::new_readonly(restaking_program_id, false),
-            anchor_lang::prelude::AccountMeta::new_readonly(system_program::ID, false),
+            anchor_lang::prelude::AccountMeta::new(submission_pda, false),
+            anchor_lang::prelude::AccountMeta::new(operator_account, false),
+            anchor_lang::prelude::AccountMeta::new(operator_avs_registration, false),
+            anchor_lang::prelude::AccountMeta::new_readonly(self.restaking_program_id, false),
+            anchor_lang::prelude::AccountMeta::new_readonly(system_program::id(), false),
         ];
 
         let ix = anchor_lang::solana_program::instruction::Instruction {
@@ -271,6 +294,7 @@ impl OperatorRunner {
 
         let sig = oracle_program
             .request()
+            .payer(self.operator.clone())
             .instruction(ix)
             .signer(&*self.operator)
             .send()?;
@@ -279,35 +303,16 @@ impl OperatorRunner {
         Ok(())
     }
 
-    async fn fetch_pyth_price(&self, feed_id: &[u8; 32]) -> Result<(i64, u64, i64)> {
-        let feed_id_hex = feed_id
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<String>();
-
-        let url = format!(
-            "https://hermes.pyth.network/api/latest_price_feeds?ids[]=0x{}",
-            feed_id_hex
-        );
-
-        let response: serde_json::Value = reqwest::get(&url).await?.json().await?;
-
-        if let Some(price_feed) = response.as_array().and_then(|arr| arr.first()) {
-            if let Some(price_data) = price_feed.get("price") {
-                let price = price_data["price"]
-                    .as_str()
-                    .and_then(|s| s.parse::<i64>().ok())
-                    .unwrap_or(0);
-                let conf = price_data["conf"]
-                    .as_str()
-                    .and_then(|s| s.parse::<u64>().ok())
-                    .unwrap_or(0);
-                let publish_time = price_data["publish_time"].as_i64().unwrap_or(0);
-
-                return Ok((price, conf, publish_time));
-            }
-        }
-
-        anyhow::bail!("Failed to parse Pyth price data")
+    fn fetch_demo_price(&self) -> Result<(i64, u64, i64)> {
+        // Simple demo fetch from Binance BTCUSDT ticker
+        // You can change the symbol or source as needed
+        let url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
+        let resp: serde_json::Value = reqwest::blocking::get(url)?.json()?;
+        let price_str = resp["price"].as_str().ok_or_else(|| anyhow::anyhow!("bad price"))?;
+        let price_f: f64 = price_str.parse()?;
+        let price_i64: i64 = (price_f * 1e8).round() as i64; // 8-decimal fixed-point
+        let conf: u64 = 0;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as i64;
+        Ok((price_i64, conf, now))
     }
 }

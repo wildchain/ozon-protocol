@@ -1,4 +1,4 @@
-### Ozon-cli (PLEASE NOTE - We are currently in the development stage , So mainnet deployments are not live yet. please stick to our Devnet and have fun).
+### Ozon-cli (PLEASE NOTE - We are currently in the development stage , so mainnet deployments are not live yet. Please stick to Devnet and have fun).
 
 
 [![Crates.io](https://img.shields.io/crates/v/ozon-cli.svg)](https://crates.io/crates/ozon-cli)
@@ -22,7 +22,7 @@ Command-line interface for interacting with the Ozon restaking protocol on Solan
 cargo install ozon-cli
 ```
 
-### Install from Source(Repo is private as of now - use the above option)
+### Install from Source (Repo is private as of now - use the above option)
 
 ```bash
 git clone https://github.com/wildchain/ozon_contract.git
@@ -297,22 +297,28 @@ ozon-cli de-register-avs \
 ---
 
 ### 6. Opt Into AVS (Operator Registration)
+
 Allow an operator to opt into an Actively Validated Service to start providing services.
-Syntax:
-bashozon-cli opt-in-avs \
+
+**Syntax:**
+```bash
+ozon-cli opt-in-avs \
   --avs-owner <PUBKEY> \
   [--cluster <CLUSTER>] \
   [--wallet <PATH>] \
   [--interactive]
-Parameters:
+```
 
---avs-owner: The public key of the AVS owner you want to opt into
---cluster: Network cluster [default: devnet]
---wallet: Path to wallet file [default: ~/.config/solana/id.json]
---interactive: Launch the Ozon AVS Selection dashboard in your browser [optional]
+**Parameters:**
 
-Example:
-bash# Opt into an AVS using the AVS owner's public key
+- `--avs-owner`: The public key of the AVS owner you want to opt into
+- `--cluster`: Network cluster [default: devnet]
+- `--wallet`: Path to wallet file [default: ~/.config/solana/id.json]
+- `--interactive`: Launch the Ozon AVS Selection dashboard in your browser [optional]
+
+**Example:**
+```bash
+# Opt into an AVS using the AVS owner's public key
 ozon-cli opt-in-avs \
   --avs-owner 8xYzAbCdEfGh1234567890qwertyuiopasdfghjklzxc \
   --cluster devnet
@@ -325,13 +331,131 @@ ozon-cli opt-in-avs \
   --avs-owner 8xYzAbCdEfGh1234567890qwertyuiopasdfghjklzxc \
   --cluster mainnet \
   --wallet /path/to/mainnet-wallet.json
-Output:
+```
+
+**Output:**
+```
 🔍 Debug info:
   Operator: CLuH...btHN
   AVS Owner: 8xYz...zxc
   AVS Account: 4sWx...KlMn
   Registration PDA: 9pQw...XyZa
 ✅ Opted into AVS with tx 7mN8...5kL2
+```
+
+---
+
+### 7. Run Operator Daemon
+
+Run a local operator daemon that polls for active tasks and submits results automatically.
+
+**Syntax:**
+```bash
+ozon-cli run-operator \
+  [--cluster <CLUSTER>] \
+  [--wallet <PATH>] \
+  [--poll-interval-seconds <SECONDS>]
+```
+
+**Parameters:**
+- `--poll-interval-seconds`: Poll interval in seconds [default: 10]
+
+**Example:**
+```bash
+ozon-cli run-operator \
+  --cluster devnet \
+  --wallet ./operator1.json \
+  --poll-interval-seconds 10
+```
+
+---
+
+### 8. Create Task (AVS Owner)
+
+Create a new task under your AVS.
+
+**Syntax:**
+```bash
+ozon-cli create-task \
+  --task-id <U64> \
+  --submission-deadline-slots <U64> \
+  --verification-threshold-bps <U64> \
+  [--cluster <CLUSTER>] \
+  [--wallet <PATH>]
+```
+
+**Example:**
+```bash
+ozon-cli create-task \
+  --task-id 3 \
+  --submission-deadline-slots 1200 \
+  --verification-threshold-bps 200 \
+  --cluster devnet \
+  --wallet ~/.config/solana/avs-owner.json
+```
+
+---
+
+### 9. Submit Task Result (Operator)
+
+Submit a task result manually (the daemon usually handles this automatically).
+
+**Syntax:**
+```bash
+ozon-cli submit-task-result \
+  --task-pubkey <PUBKEY> \
+  --submitted-price <I64_SCALED_1e8> \
+  --confidence <U64> \
+  --publish-time <I64_UNIX_S> \
+  [--cluster <CLUSTER>] \
+  [--wallet <PATH>]
+```
+
+---
+
+### 10. Verify Task (AVS Owner)
+
+Verify an operator's submission and slash if incorrect.
+
+**Syntax:**
+```bash
+ozon-cli verify-task \
+  --task-pubkey <PUBKEY> \
+  --operator-owner <PUBKEY> \
+  --actual-price <I64_SCALED_1e8> \
+  [--cluster <CLUSTER>] \
+  [--wallet <PATH>]
+```
+
+**Notes:**
+- `--actual-price` must be an integer i64 scaled to 8 decimals (e.g., 67321.12 → 6732112000000000).
+
+---
+
+### 11. Close Task (AVS Owner)
+
+Close a task after the submission window has passed.
+
+**Syntax:**
+```bash
+ozon-cli close-task \
+  --task-pubkey <PUBKEY> \
+  [--cluster <CLUSTER>] \
+  [--wallet <PATH>]
+```
+
+---
+
+### 12. Get Task PDA (Helper)
+
+Derive the task account PDA for a given `task_id` and `avs_owner`.
+
+**Syntax:**
+```bash
+ozon-cli get-task-pda \
+  --task-id <U64> \
+  --avs-owner <PUBKEY>
+```
 
 **Interactive Mode:**
 When using --interactive, the command will open the Ozon AVS Selection dashboard in your default browser, where you can:
@@ -526,6 +650,12 @@ ozon-cli opt-in-avs \
 | `de-register-avs` | Unregister AVS | Must own AVS |
 | `opt-in-avs` | Operator joins an AVS | Must be registered operator |
 | `initialize-reward-treasury` | Setup reward system | Protocol authority only |
+| `run-operator` | Run operator daemon to auto-submit tasks | Registered operator |
+| `create-task` | Create a new task | AVS owner |
+| `submit-task-result` | Manually submit result | Operator opted into AVS |
+| `verify-task` | Verify submission and slash if wrong | AVS owner |
+| `close-task` | Close an expired task | AVS owner |
+| `get-task-pda` | Derive task PDA | None |
 
 ---
 

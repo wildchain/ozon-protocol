@@ -618,22 +618,8 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "proc-macro2",
- "pyth-solana-receiver-sdk",
- "restaking-programs 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "zeroize",
-]
-
-[[package]]
-name = "avs-oracle"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07bfbdc9312ad2d280f7c291adc097229bcfd09cbe871992785f34b3a2c0ee32"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "proc-macro2",
- "pyth-solana-receiver-sdk",
- "restaking-programs 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "restaking-programs",
+ "solana-program",
  "zeroize",
 ]
 
@@ -1506,15 +1492,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fast-math"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2465292146cdfc2011350fe3b1c616ac83cf0faeedb33463ba1c332ed8948d66"
-dependencies = [
- "ieee754",
-]
-
-[[package]]
 name = "fastbloom"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1864,9 +1841,6 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "histogram"
@@ -2189,12 +2163,6 @@ dependencies = [
  "icu_normalizer",
  "icu_properties",
 ]
-
-[[package]]
-name = "ieee754"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9007da9cacbd3e6343da136e98b0d2df013f553d35bdec8b518f07bea768e19c"
 
 [[package]]
 name = "indexmap"
@@ -2836,13 +2804,13 @@ dependencies = [
  "anchor-client",
  "anchor-lang",
  "anyhow",
- "avs-oracle 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "avs-oracle",
  "clap",
  "dirs",
  "hex",
  "open",
  "reqwest 0.11.27",
- "restaking-programs 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "restaking-programs",
  "serde",
  "serde_json",
  "tokio",
@@ -3007,38 +2975,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89ae43fd86e4158d6db51ad8e2b80f313af9cc74f5c0e03ccb87de09998732de"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "pyth-solana-receiver-sdk"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66596ab94606146630358bbf8b7187ac7353b766ab92028ecec7478a79a6059d"
-dependencies = [
- "anchor-lang",
- "hex",
- "pythnet-sdk",
-]
-
-[[package]]
-name = "pythnet-sdk"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "498d20fd330277697aaee92f341bdabdb4695b10e05f054157a18ad8b7746a17"
-dependencies = [
- "anchor-lang",
- "bincode",
- "borsh 0.10.4",
- "bytemuck",
- "byteorder",
- "fast-math",
- "hex",
- "rustc_version",
- "serde",
- "sha3",
- "slow_primes",
- "solana-program",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -3419,18 +3355,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "proc-macro2",
- "zeroize",
-]
-
-[[package]]
-name = "restaking-programs"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fc668e8f80ac3d60b2a7fe01d1007574b4f5dec388177ae70407963a438f98d"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "proc-macro2",
+ "solana-program",
  "zeroize",
 ]
 
@@ -3882,15 +3807,6 @@ name = "slab"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
-
-[[package]]
-name = "slow_primes"
-version = "0.1.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58267dd2fbaa6dceecba9e3e106d2d90a2b02497c0e8b01b8759beccf5113938"
-dependencies = [
- "num",
-]
 
 [[package]]
 name = "smallvec"
