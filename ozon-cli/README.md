@@ -174,14 +174,14 @@ Register a new Actively Validated Service (AVS) with the protocol.
 **Syntax:**
 ```bash
 ozon-cli register-avs \
-  --name <STRING> \
+  --metadata <STRING> \
   --registration-fee <LAMPORTS> \
   [--cluster <CLUSTER>] \
   [--wallet <PATH>]
 ```
 
 **Parameters:**
-- `--name`: Name/metadata for your AVS
+- `--metadata`: Name/metadata for your AVS
 - `--registration-fee`: Registration fee in lamports (minimum: 3 SOL = 3,000,000,000 lamports)
 - `--cluster`: Network cluster [default: devnet]
 - `--wallet`: Path to wallet file [default: ~/.config/solana/id.json]
@@ -190,13 +190,13 @@ ozon-cli register-avs \
 ```bash
 # Register AVS on devnet
 ozon-cli register-avs \
-  --name "Oracle Price Feeds" \
+  --metadata "Oracle Price Feeds" \
   --registration-fee 3000000000 \
   --cluster devnet
 
 # Register on mainnet
 ozon-cli register-avs \
-  --name "Cross-Chain Bridge Service" \
+  --metadata "Cross-Chain Bridge Service" \
   --registration-fee 5000000000 \
   --cluster mainnet \
   --wallet /path/to/mainnet-wallet.json
