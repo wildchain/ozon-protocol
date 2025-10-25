@@ -502,13 +502,13 @@ solana balance
 
 # 2. Register your AVS
 ozon-cli register-avs \
-  --name "My Validation Service" \
+  --metadata "My Validation Service" \
   --registration-fee 3000000000 \
   --cluster devnet
 
 # 3. Update name later if needed
 ozon-cli update-avs-metadata \
-  --name "My Validation Service v2" \
+  --metadata "My Validation Service v2" \
   --cluster devnet
 
 # 5. Share your AVS owner pubkey with operators
