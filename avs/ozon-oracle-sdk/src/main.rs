@@ -32,11 +32,8 @@ enum Commands {
         #[arg(long, help = "Unique task ID (incrementing number)")]
         task_id: u64,
 
-        #[arg(
-            long,
-            help = "Pyth price feed ID (32-byte hex string)\nExample: e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"
-        )]
-        pyth_feed_id: String,
+        #[arg(long, help = "Switchboard Aggregator pubkey (base58)")]
+        aggregator: String,
 
         #[arg(
             long,
@@ -158,7 +155,7 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::CreateTask {
             task_id,
-            pyth_feed_id,
+            aggregator,
             deadline_slots,
             threshold_bps,
             cluster,
@@ -166,7 +163,7 @@ fn main() -> Result<()> {
         } => {
             create_task(
                 task_id,
-                pyth_feed_id,
+                aggregator,
                 deadline_slots,
                 threshold_bps,
                 &cluster,
@@ -213,7 +210,7 @@ fn main() -> Result<()> {
 
 fn create_task(
     task_id: u64,
-    pyth_feed_id: String,
+    aggregator: String,
     deadline_slots: u64,
     threshold_bps: u64,
     cluster: &str,
@@ -223,13 +220,7 @@ fn create_task(
     let program_id: Pubkey = AVS_ORACLE_PROGRAM_ID.parse()?;
     let program = client.program(program_id)?;
 
-    let feed_hex = pyth_feed_id.trim_start_matches("0x");
-    let feed_bytes = hex::decode(feed_hex)?;
-    if feed_bytes.len() != 32 {
-        anyhow::bail!("Pyth feed ID must be 32 bytes (64 hex characters)");
-    }
-    let mut feed_id = [0u8; 32];
-    feed_id.copy_from_slice(&feed_bytes);
+    let aggregator_pk: Pubkey = aggregator.parse()?;
 
     let (task_account, _) = Pubkey::find_program_address(
         &[
@@ -245,7 +236,7 @@ fn create_task(
     println!("  AVS Owner:    {}", payer.pubkey());
     println!("  Task ID:      {}", task_id);
     println!("  Task Account: {}", task_account);
-    println!("  Pyth Feed:    0x{}", hex::encode(&feed_id));
+    println!("  Aggregator:   {}", aggregator_pk);
     println!("  Deadline:     {} slots from now", deadline_slots);
     println!(
         "  Threshold:    {}bps ({}%)",
@@ -262,14 +253,14 @@ fn create_task(
     #[derive(AnchorSerialize)]
     struct CreateTaskArgs {
         task_id: u64,
-        pyth_price_feed_id: [u8; 32],
+        switchboard_aggregator: Pubkey,
         submission_deadline_slots: u64,
         verification_threshold_bps: u64,
     }
 
     let args = CreateTaskArgs {
         task_id,
-        pyth_price_feed_id: feed_id,
+        switchboard_aggregator: aggregator_pk,
         submission_deadline_slots: deadline_slots,
         verification_threshold_bps: threshold_bps,
     };
@@ -333,8 +324,7 @@ fn list_tasks(cluster: &str, wallet: Option<&str>, active_only: bool) -> Result<
         }
 
         let task_id = u64::from_le_bytes(account.data[40..48].try_into()?);
-        let mut pyth_feed = [0u8; 32];
-        pyth_feed.copy_from_slice(&account.data[48..80]);
+        let aggregator = Pubkey::try_from(&account.data[48..80])?;
         let deadline = u64::from_le_bytes(account.data[80..88].try_into()?);
         let threshold = u64::from_le_bytes(account.data[88..96].try_into()?);
         let total_submissions = u32::from_le_bytes(account.data[104..108].try_into()?);
@@ -355,7 +345,7 @@ fn list_tasks(cluster: &str, wallet: Option<&str>, active_only: bool) -> Result<
         println!("  Task #{}", task_id);
         println!("  ├─ Account:      {}", pubkey);
         println!("  ├─ Status:       {}", status);
-        println!("  ├─ Pyth Feed:    0x{}", hex::encode(&pyth_feed[..8]));
+        println!("  ├─ Aggregator:   {}", aggregator);
         println!(
             "  ├─ Threshold:    {}bps ({}%)",
             threshold,
