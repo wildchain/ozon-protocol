@@ -223,13 +223,13 @@ Update the metadata/name of your registered AVS.
 **Syntax:**
 ```bash
 ozon-cli update-avs-metadata \
-  --name <STRING> \
+  --metadata <STRING> \
   [--cluster <CLUSTER>] \
   [--wallet <PATH>]
 ```
 
 **Parameters:**
-- `--name`: New name/metadata for your AVS
+- `--metadata`: New name/metadata for your AVS
 - `--cluster`: Network cluster [default: devnet]
 - `--wallet`: Path to wallet file [default: ~/.config/solana/id.json]
 
@@ -237,12 +237,12 @@ ozon-cli update-avs-metadata \
 ```bash
 # Update AVS metadata
 ozon-cli update-avs-metadata \
-  --name "Oracle Price Feeds v2.0" \
+  --metadata "Oracle Price Feeds v2.0" \
   --cluster devnet
 
 # Update on mainnet
 ozon-cli update-avs-metadata \
-  --name "Enhanced Oracle Service" \
+  --metadata "Enhanced Oracle Service" \
   --cluster mainnet \
   --wallet /path/to/mainnet-wallet.json
 ```
