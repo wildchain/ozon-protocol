@@ -534,7 +534,7 @@ ozon-cli opt-in-avs --interactive
 - Select and opt-in with one click
 - Visual interface for easier navigation
 
-**Dashboard URL**: https://ozon-operator-avs-registy.netlify.app/
+<!-- **Dashboard URL**: https://pop-up-avs-dash.netlify.app/ -->
 
 ---
 
