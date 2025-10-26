@@ -84,6 +84,7 @@ ozon-cli <COMMAND> [OPTIONS]
 
 Register a new operator with the Ozon protocol by staking a bond amount.
 
+
 **Syntax:**
 ```bash
 ozon-cli initialize-operator \
@@ -865,6 +866,8 @@ Supported clusters are:
 - `testnet`
 - `mainnet` or `mainnet-beta` (`coming soon`)
 
+
+
 ### Issue: "Unauthorized action"
 
 Ensure you're using the correct wallet that owns the operator/AVS you're trying to modify.
@@ -887,6 +890,14 @@ https://explorer.solana.com/tx/<SIGNATURE>
 ```
 
 ---
+
+### Bonus - you can monitor your operator slashed info by running ozon-inbuilt slashboard.
+
+**Syntax:**
+```bash
+ozon-cli run-nodes-client --cluster <CLUSTER> --operator-owner <PUBKEY> --debug
+```
+
 
 ## 🔗 Program Information
 
