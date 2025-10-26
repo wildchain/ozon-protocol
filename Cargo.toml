@@ -1,5 +1,10 @@
 [workspace]
-members = ["ozon-cli", "programs/*", "operator-nodes-client"]
+members = [
+    "ozon-cli",
+    "programs/*",
+    "operator-nodes-client",
+    "ozon-operator-slashboard",
+]
 resolver = "2"
 
 # [workspace.dependencies]
