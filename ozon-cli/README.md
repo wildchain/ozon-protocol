@@ -84,6 +84,7 @@ ozon-cli <COMMAND> [OPTIONS]
 
 Register a new operator with the Ozon protocol by staking a bond amount.
 
+
 **Syntax:**
 ```bash
 ozon-cli initialize-operator \
@@ -174,14 +175,14 @@ Register a new Actively Validated Service (AVS) with the protocol.
 **Syntax:**
 ```bash
 ozon-cli register-avs \
-  --name <STRING> \
+  --metadata <STRING> \
   --registration-fee <LAMPORTS> \
   [--cluster <CLUSTER>] \
   [--wallet <PATH>]
 ```
 
 **Parameters:**
-- `--name`: Name/metadata for your AVS
+- `--metadata`: Name/metadata for your AVS
 - `--registration-fee`: Registration fee in lamports (minimum: 3 SOL = 3,000,000,000 lamports)
 - `--cluster`: Network cluster [default: devnet]
 - `--wallet`: Path to wallet file [default: ~/.config/solana/id.json]
@@ -190,13 +191,13 @@ ozon-cli register-avs \
 ```bash
 # Register AVS on devnet
 ozon-cli register-avs \
-  --name "Oracle Price Feeds" \
+  --metadata "Oracle Price Feeds" \
   --registration-fee 3000000000 \
   --cluster devnet
 
 # Register on mainnet
 ozon-cli register-avs \
-  --name "Cross-Chain Bridge Service" \
+  --metadata "Cross-Chain Bridge Service" \
   --registration-fee 5000000000 \
   --cluster mainnet \
   --wallet /path/to/mainnet-wallet.json
@@ -223,13 +224,13 @@ Update the metadata/name of your registered AVS.
 **Syntax:**
 ```bash
 ozon-cli update-avs-metadata \
-  --name <STRING> \
+  --metadata <STRING> \
   [--cluster <CLUSTER>] \
   [--wallet <PATH>]
 ```
 
 **Parameters:**
-- `--name`: New name/metadata for your AVS
+- `--metadata`: New name/metadata for your AVS
 - `--cluster`: Network cluster [default: devnet]
 - `--wallet`: Path to wallet file [default: ~/.config/solana/id.json]
 
@@ -237,12 +238,12 @@ ozon-cli update-avs-metadata \
 ```bash
 # Update AVS metadata
 ozon-cli update-avs-metadata \
-  --name "Oracle Price Feeds v2.0" \
+  --metadata "Oracle Price Feeds v2.0" \
   --cluster devnet
 
 # Update on mainnet
 ozon-cli update-avs-metadata \
-  --name "Enhanced Oracle Service" \
+  --metadata "Enhanced Oracle Service" \
   --cluster mainnet \
   --wallet /path/to/mainnet-wallet.json
 ```
@@ -502,13 +503,13 @@ solana balance
 
 # 2. Register your AVS
 ozon-cli register-avs \
-  --name "My Validation Service" \
+  --metadata "My Validation Service" \
   --registration-fee 3000000000 \
   --cluster devnet
 
 # 3. Update name later if needed
 ozon-cli update-avs-metadata \
-  --name "My Validation Service v2" \
+  --metadata "My Validation Service v2" \
   --cluster devnet
 
 # 5. Share your AVS owner pubkey with operators
@@ -865,6 +866,8 @@ Supported clusters are:
 - `testnet`
 - `mainnet` or `mainnet-beta` (`coming soon`)
 
+
+
 ### Issue: "Unauthorized action"
 
 Ensure you're using the correct wallet that owns the operator/AVS you're trying to modify.
@@ -887,6 +890,14 @@ https://explorer.solana.com/tx/<SIGNATURE>
 ```
 
 ---
+
+### Bonus - you can monitor your operator slashed info by running ozon-inbuilt slashboard.
+
+**Syntax:**
+```bash
+ozon-cli run-nodes-client --cluster <CLUSTER> --operator-owner <PUBKEY> --debug
+```
+
 
 ## 🔗 Program Information
 

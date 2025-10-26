@@ -14,6 +14,9 @@ use operator_runner::OperatorRunner;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use open;
+use std::io::ErrorKind;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::rc::Rc;
 
 #[derive(Parser, Debug)]
@@ -152,6 +155,21 @@ enum Commands {
         task_id: u64,
         #[arg(long)]
         avs_owner: String,
+    },
+
+    /// Run the operator-nodes-client listener/server
+    RunNodesClient {
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        /// Optional operator owner pubkey; if provided, forwarded as OPERATOR_OWNER
+        #[arg(long)]
+        operator_owner: Option<String>,
+        /// Override Solana RPC URL; otherwise derived from cluster
+        #[arg(long)]
+        http_url: Option<String>,
+        /// If set, enables verbose listener logs
+        #[arg(long, default_value_t = false)]
+        debug: bool,
     },
 }
 
@@ -349,7 +367,7 @@ fn main() -> Result<()> {
         } => {
             if interactive {
                 println!("🌐 Launching Ozon Avs Selection dashboard");
-                let _ = open::that("https://dashboard-avs.netlify.app/");
+                let _ = open::that("https://pop-up-avs-dash.netlify.app/");
                 return Ok(());
             }
 
@@ -620,6 +638,28 @@ fn main() -> Result<()> {
                 &program_id,
             );
             println!("Task PDA: {}", task_account);
+        }
+
+        Commands::RunNodesClient {
+            cluster,
+            operator_owner,
+            http_url,
+            debug,
+        } => {
+            let url = http_url.unwrap_or_else(|| match cluster.to_lowercase().as_str() {
+                "devnet" => "https://api.devnet.solana.com".to_string(),
+                "testnet" => "https://api.testnet.solana.com".to_string(),
+                "mainnet" | "mainnet-beta" => "https://api.mainnet-beta.solana.com".to_string(),
+                other => other.to_string(),
+            });
+
+            println!("Launching operator-nodes-client with RPC {}", url);
+            if let Some(ref owner) = operator_owner { println!("OPERATOR_OWNER={}", owner); }
+            if debug { println!("DEBUG_LISTENER=1"); }
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?;
+            rt.block_on(operator_nodes_client::run(Some(url), operator_owner, debug))?;
         }
     }
 
