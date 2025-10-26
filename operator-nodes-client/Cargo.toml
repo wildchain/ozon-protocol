@@ -19,3 +19,4 @@ solana-transaction-status-client-types = "2.3.13"
 
 restaking-programs = { path = "../programs/restaking-programs" }
 dirs = "5"
+base64 = "0.21"

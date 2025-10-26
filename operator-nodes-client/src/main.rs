@@ -7,6 +7,7 @@ use solana_client::rpc_config::RpcTransactionConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_status_client_types::option_serializer::OptionSerializer;
+use base64::{engine::general_purpose, Engine as _};
 
  fn format_log_line(line: &str) -> String {
     // Omit binary program data (usually base64-encoded Anchor event payloads)
@@ -132,6 +133,19 @@ fn parse_and_notify(log_lines: &[String]) {
     let mut slashed_amount: Option<u64> = None;
     let mut remaining_bond: Option<u64> = None;
 
+    fn parse_event_from_program_data(b64: &str) -> Option<(String, u64, u64)> {
+        let bytes = general_purpose::STANDARD.decode(b64).ok()?;
+        if bytes.len() < 56 { return None; } // 8 discriminator + 32 + 8 + 8
+        let data = &bytes[8..];
+        if data.len() < 48 { return None; }
+        let mut owner_arr = [0u8; 32];
+        owner_arr.copy_from_slice(&data[0..32]);
+        let owner = Pubkey::new_from_array(owner_arr).to_string();
+        let slashed = u64::from_le_bytes(data[32..40].try_into().ok()?);
+        let remaining = u64::from_le_bytes(data[40..48].try_into().ok()?);
+        Some((owner, slashed, remaining))
+    }
+
     for line in log_lines.iter() {
         if line.contains("OperatorSlashedEvent") {
             saw_event = true;
@@ -159,15 +173,43 @@ fn parse_and_notify(log_lines: &[String]) {
             }
             if let Some(idx) = line.find("operator_owner:") {
                 let tail = line[idx + "operator_owner:".len()..].trim();
-                operator_owner = tail.split_whitespace().next().map(|s| s.trim_matches(',').to_string());
+                operator_owner = tail
+                    .split_whitespace()
+                    .next()
+                    .map(|s| s.trim_matches(&[',', '}'][..]).to_string())
+                    .map(|mut s| {
+                        if let Some(stripped) = s.strip_prefix("Some(").and_then(|x| x.strip_suffix(')')) {
+                            s = stripped.to_string();
+                        }
+                        s
+                    });
+            }
+        }
+
+        if let Some(b64) = line.strip_prefix("Program data: ") {
+            if let Some((owner, slash, remain)) = parse_event_from_program_data(b64.trim()) {
+                saw_event = true;
+                if operator_owner.is_none() { operator_owner = Some(owner); }
+                if slashed_amount.is_none() { slashed_amount = Some(slash); }
+                if remaining_bond.is_none() { remaining_bond = Some(remain); }
             }
         }
     }
 
     if saw_event {
+        let owner_disp = operator_owner
+            .or_else(|| std::env::var("OPERATOR_OWNER").ok())
+            .unwrap_or_else(|| "unknown".to_string());
+        let slashed_disp = slashed_amount
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        let remaining_disp = remaining_bond
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+
         println!(
-            "[NOTIFY] OperatorSlashedEvent detected: operator_owner={:?}, slashed_amount={:?}, remaining_bond={:?}",
-            operator_owner, slashed_amount, remaining_bond
+            "[NOTIFY] OperatorSlashedEvent: operator_owner={}, slashed_amount={}, remaining_bond={}",
+            owner_disp, slashed_disp, remaining_disp
         );
     }
 }

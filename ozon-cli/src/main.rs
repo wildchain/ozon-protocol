@@ -14,6 +14,9 @@ use operator_runner::OperatorRunner;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use open;
+use std::io::ErrorKind;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::rc::Rc;
 
 #[derive(Parser, Debug)]
@@ -152,6 +155,21 @@ enum Commands {
         task_id: u64,
         #[arg(long)]
         avs_owner: String,
+    },
+
+    /// Run the operator-nodes-client listener/server
+    RunNodesClient {
+        #[arg(long, default_value = "devnet")]
+        cluster: String,
+        /// Optional operator owner pubkey; if provided, forwarded as OPERATOR_OWNER
+        #[arg(long)]
+        operator_owner: Option<String>,
+        /// Override Solana RPC URL; otherwise derived from cluster
+        #[arg(long)]
+        http_url: Option<String>,
+        /// If set, enables verbose listener logs
+        #[arg(long, default_value_t = false)]
+        debug: bool,
     },
 }
 
@@ -349,7 +367,7 @@ fn main() -> Result<()> {
         } => {
             if interactive {
                 println!("🌐 Launching Ozon Avs Selection dashboard");
-                let _ = open::that("https://dashboard-avs.netlify.app/");
+                let _ = open::that("https://pop-up-avs-dash.netlify.app/");
                 return Ok(());
             }
 
@@ -620,6 +638,95 @@ fn main() -> Result<()> {
                 &program_id,
             );
             println!("Task PDA: {}", task_account);
+        }
+
+        Commands::RunNodesClient {
+            cluster,
+            operator_owner,
+            http_url,
+            debug,
+        } => {
+            let url = http_url.unwrap_or_else(|| match cluster.to_lowercase().as_str() {
+                "devnet" => "https://api.devnet.solana.com".to_string(),
+                "testnet" => "https://api.testnet.solana.com".to_string(),
+                "mainnet" | "mainnet-beta" => "https://api.mainnet-beta.solana.com".to_string(),
+                other => other.to_string(),
+            });
+
+            println!("Launching operator-nodes-client with RPC {}", url);
+            if let Some(ref owner) = operator_owner {
+                println!("OPERATOR_OWNER={}", owner);
+            }
+            if debug {
+                println!("DEBUG_LISTENER=1");
+            }
+
+            let mut tried = false;
+            let status = (|| -> Result<std::process::ExitStatus> {
+                if let Ok(mut exe) = std::env::current_exe() {
+                    exe.pop();
+                    exe.push("operator-nodes-client");
+                    if exe.exists() {
+                        tried = true;
+                        let mut cmd = Command::new(&exe);
+                        cmd.env("SOLANA_HTTP_URL", &url)
+                            .stdin(Stdio::inherit())
+                            .stdout(Stdio::inherit())
+                            .stderr(Stdio::inherit());
+                        if let Some(owner) = operator_owner.clone() {
+                            cmd.env("OPERATOR_OWNER", owner);
+                        }
+                        if debug {
+                            cmd.env("DEBUG_LISTENER", "1");
+                        }
+                        return Ok(cmd.status()?);
+                    }
+                }
+
+                let mut cmd = Command::new("operator-nodes-client");
+                cmd.env("SOLANA_HTTP_URL", &url)
+                    .stdin(Stdio::inherit())
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit());
+                if let Some(owner) = operator_owner.clone() {
+                    cmd.env("OPERATOR_OWNER", owner);
+                }
+                if debug {
+                    cmd.env("DEBUG_LISTENER", "1");
+                }
+                match cmd.status() {
+                    Ok(s) => return Ok(s),
+                    Err(e) if e.kind() == ErrorKind::NotFound => {
+                        tried = true;
+                    }
+                    Err(e) => return Err(anyhow::anyhow!(e.to_string())),
+                }
+
+                let mut cargo = Command::new("cargo");
+                cargo
+                    .arg("run")
+                    .arg("-p")
+                    .arg("operator-nodes-client")
+                    .stdin(Stdio::inherit())
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
+                    .env("SOLANA_HTTP_URL", &url);
+                if let Some(owner) = operator_owner {
+                    cargo.env("OPERATOR_OWNER", owner);
+                }
+                if debug {
+                    cargo.env("DEBUG_LISTENER", "1");
+                }
+                Ok(cargo.status()?)
+            })()?;
+
+            if !status.success() {
+                if tried {
+                    anyhow::bail!("operator-nodes-client could not be started (PATH/sibling/cargo failed), last status {}", status);
+                } else {
+                    anyhow::bail!("operator-nodes-client exited with status {}", status);
+                }
+            }
         }
     }
 
