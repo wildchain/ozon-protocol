@@ -1,5 +1,5 @@
 [package]
-name = "ozon-operator-slashboard"
+name = "operator-nodes-client"
 version = "0.1.0"
 edition = "2021"
 authors = ["Bristin Borah  <bristinozon@gmail.com>"]

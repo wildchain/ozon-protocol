@@ -2885,7 +2885,7 @@ dependencies = [
  "axum",
  "base64 0.21.7",
  "dirs",
- "restaking-programs 0.1.4",
+ "restaking-programs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "solana-client",
