@@ -2897,6 +2897,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "operator-nodes-client"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "628cb54d56dc9631155cf9217b466af88c28a9cd8a5fd6a4b2743493a114315f"
+dependencies = [
+ "anchor-client",
+ "anyhow",
+ "axum",
+ "base64 0.21.7",
+ "dirs",
+ "restaking-programs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "solana-client",
+ "solana-sdk",
+ "solana-transaction-status-client-types",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2904,7 +2926,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "ozon-cli"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "anchor-client",
  "anchor-lang",
@@ -2914,7 +2936,7 @@ dependencies = [
  "dirs",
  "hex",
  "open",
- "operator-nodes-client",
+ "operator-nodes-client 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.11.27",
  "restaking-programs 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
