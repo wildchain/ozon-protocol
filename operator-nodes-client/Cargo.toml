@@ -1,7 +1,15 @@
 [package]
-name = "operator-nodes-client"
+name = "ozon-operator-slashboard"
 version = "0.1.0"
 edition = "2021"
+authors = ["Bristin Borah  <bristinozon@gmail.com>"]
+description = "Ozon Operator Slashboard helps to monitor operator nodes getting slashed for mishaving while validating."
+license = "Apache-2.0"
+repository = "https://github.com/wildchain/ozon_contract"
+homepage = "https://github.com/wildchain/ozon_contract"
+readme = "README.md"
+keywords = ["solana", "ozon", "restaking", "slashboard"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 axum = "0.7"
@@ -17,6 +25,6 @@ solana-sdk = "2.1.0"
 solana-client = "2.1.0"
 solana-transaction-status-client-types = "2.3.13"
 
-restaking-programs = { path = "../programs/restaking-programs" }
+restaking-programs = { version = "0.1.4" }
 dirs = "5"
 base64 = "0.21"

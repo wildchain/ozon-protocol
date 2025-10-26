@@ -654,79 +654,12 @@ fn main() -> Result<()> {
             });
 
             println!("Launching operator-nodes-client with RPC {}", url);
-            if let Some(ref owner) = operator_owner {
-                println!("OPERATOR_OWNER={}", owner);
-            }
-            if debug {
-                println!("DEBUG_LISTENER=1");
-            }
-
-            let mut tried = false;
-            let status = (|| -> Result<std::process::ExitStatus> {
-                if let Ok(mut exe) = std::env::current_exe() {
-                    exe.pop();
-                    exe.push("operator-nodes-client");
-                    if exe.exists() {
-                        tried = true;
-                        let mut cmd = Command::new(&exe);
-                        cmd.env("SOLANA_HTTP_URL", &url)
-                            .stdin(Stdio::inherit())
-                            .stdout(Stdio::inherit())
-                            .stderr(Stdio::inherit());
-                        if let Some(owner) = operator_owner.clone() {
-                            cmd.env("OPERATOR_OWNER", owner);
-                        }
-                        if debug {
-                            cmd.env("DEBUG_LISTENER", "1");
-                        }
-                        return Ok(cmd.status()?);
-                    }
-                }
-
-                let mut cmd = Command::new("operator-nodes-client");
-                cmd.env("SOLANA_HTTP_URL", &url)
-                    .stdin(Stdio::inherit())
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit());
-                if let Some(owner) = operator_owner.clone() {
-                    cmd.env("OPERATOR_OWNER", owner);
-                }
-                if debug {
-                    cmd.env("DEBUG_LISTENER", "1");
-                }
-                match cmd.status() {
-                    Ok(s) => return Ok(s),
-                    Err(e) if e.kind() == ErrorKind::NotFound => {
-                        tried = true;
-                    }
-                    Err(e) => return Err(anyhow::anyhow!(e.to_string())),
-                }
-
-                let mut cargo = Command::new("cargo");
-                cargo
-                    .arg("run")
-                    .arg("-p")
-                    .arg("operator-nodes-client")
-                    .stdin(Stdio::inherit())
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit())
-                    .env("SOLANA_HTTP_URL", &url);
-                if let Some(owner) = operator_owner {
-                    cargo.env("OPERATOR_OWNER", owner);
-                }
-                if debug {
-                    cargo.env("DEBUG_LISTENER", "1");
-                }
-                Ok(cargo.status()?)
-            })()?;
-
-            if !status.success() {
-                if tried {
-                    anyhow::bail!("operator-nodes-client could not be started (PATH/sibling/cargo failed), last status {}", status);
-                } else {
-                    anyhow::bail!("operator-nodes-client exited with status {}", status);
-                }
-            }
+            if let Some(ref owner) = operator_owner { println!("OPERATOR_OWNER={}", owner); }
+            if debug { println!("DEBUG_LISTENER=1"); }
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()?;
+            rt.block_on(operator_nodes_client::run(Some(url), operator_owner, debug))?;
         }
     }
 
