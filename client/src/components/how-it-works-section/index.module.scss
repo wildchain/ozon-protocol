@@ -1,0 +1,55 @@
+@import '../../styles/global.module.scss';
+
+
+.howItWorksSection {
+  @extend .pageSection;
+
+  >h2 {
+    font-size: 2.5rem;
+    margin-bottom: 5vh;
+  }
+}
+
+.dataBadge {
+  color: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding-right: 2vw;
+  margin-bottom: 5vh;
+  color: #6219CF;
+
+}
+
+.featureBoxContainer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.featureBox {
+  max-width: 30%;
+  padding: 3vh;
+  border-radius: 16px;
+  border: 1px solid #6219cf67;
+  margin-bottom: 3vh;
+  background: linear-gradient(0deg, rgba(98, 25, 207, 0.5) 0%, rgba(10, 11, 46, 0) 32.21%);
+
+
+  >h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1vh;
+  }
+
+  >p {
+    font-size: 1rem;
+    color: #A5A6D3 !important;
+  }
+
+
+  img {
+    margin-bottom: 2vh;
+    margin-top: 2vh;
+  }
+}
