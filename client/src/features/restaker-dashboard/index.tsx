@@ -1,5 +1,6 @@
 import { OperatorManagement } from '@/features/restaker-dashboard/operator-management'
 import { PortfolioOverview } from '@/features/restaker-dashboard/portfolio-overview'
+import { FaucetOverview } from '@/features/restaker-dashboard/faucet-overview'
 import { RestakingHeader } from '@/features/restaker-dashboard/restaking-header'
 import { RewardsSection } from '@/features/restaker-dashboard/rewards-section'
 import { StakingInterface } from '@/features/restaker-dashboard/staking-interface'
@@ -32,6 +33,7 @@ export default function RestakerDashboard() {
     <div className={clsx(styles.restakerDashboard, 'min-h-screen  from-background via-background to-secondary/20')}>
       <main className="container mx-auto px-4 py-8 space-y-8">
         <PortfolioOverview />
+        <FaucetOverview />
 
         {/* Staking & Unstaking Section */}
         <div className="space-y-6">
