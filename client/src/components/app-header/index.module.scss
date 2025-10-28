@@ -1,0 +1,32 @@
+.appHeader {
+  display: flex;
+  align-items: center;
+  padding-bottom: 2vh;
+  padding-top: 2vh;
+  padding-left: 5%;
+  padding-right: 5%;
+  justify-content: space-between;
+}
+
+.appHeaderActionsContainer {
+  display: flex;
+  align-items: center;
+  min-height: 5vh;
+  width: fit-content;
+
+  nav>* {
+    margin-right: 2vw;
+    margin-left: 2vw;
+  }
+
+  >* {
+    margin-left: 2vw;
+    margin-right: 2vw;
+  }
+}
+
+.activeNavLink {
+  text-decoration: underline;
+  text-decoration-color: #a64eff;
+  text-underline-offset: 1vh;
+}

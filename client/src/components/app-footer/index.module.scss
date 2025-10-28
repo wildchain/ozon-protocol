@@ -1,0 +1,58 @@
+.appFooter {
+  padding-left: 5%;
+  padding-right: 5%;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  background: radial-gradient(154.61% 85.33% at 50% -23.7%, #0A0B2E 22.52%, #000000 100%);
+}
+
+.subscribeContainer {
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid gray;
+  border-radius: 32px;
+  margin-top: 2vh;
+  padding: 0.5vh;
+  height: fit-content;
+
+  button {
+    background: #6219CF;
+    border-radius: 32px;
+    padding: 1vh;
+    padding-left: 3vh;
+    padding-right: 3vh;
+  }
+
+  input {
+    height: 5vh;
+    border-top-left-radius: 32px;
+    border-bottom-left-radius: 32px;
+    padding-left: 1vh;
+  }
+}
+
+.appFooterActionsContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+
+  a {
+    display: block;
+    padding: 1vh;
+    text-align: center;
+    margin-bottom: 1.5vh;
+    border-radius: 32px;
+  }
+
+  a:nth-of-type(1) {
+    background-color: #26C485;
+    width: 15vw;
+  }
+
+  a:nth-of-type(2) {
+    background-color: #A64EFF;
+    width: 20vw;
+  }
+}

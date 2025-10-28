@@ -1,0 +1,6 @@
+.purple-gradient-text {
+  background: linear-gradient(180deg, #6219cf 41.37%, #0a0b2e 134.34%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
